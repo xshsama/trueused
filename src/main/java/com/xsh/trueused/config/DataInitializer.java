@@ -25,15 +25,15 @@ public class DataInitializer {
             @Value("${app.bootstrap.admin.password:Admin@123}") String adminPassword) {
         return args -> {
             // Create roles if not exists
-            Role roleUser = roleRepository.findByName("ROLE_USER").orElseGet(() -> {
+            Role roleUser = roleRepository.findByName(com.xsh.trueused.enums.RoleName.ROLE_USER).orElseGet(() -> {
                 Role r = new Role();
-                r.setName("ROLE_USER");
+                r.setName(com.xsh.trueused.enums.RoleName.ROLE_USER);
                 r.setDescription("普通用户");
                 return roleRepository.save(r);
             });
-            Role roleAdmin = roleRepository.findByName("ROLE_ADMIN").orElseGet(() -> {
+            Role roleAdmin = roleRepository.findByName(com.xsh.trueused.enums.RoleName.ROLE_ADMIN).orElseGet(() -> {
                 Role r = new Role();
-                r.setName("ROLE_ADMIN");
+                r.setName(com.xsh.trueused.enums.RoleName.ROLE_ADMIN);
                 r.setDescription("管理员");
                 return roleRepository.save(r);
             });

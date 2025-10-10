@@ -16,6 +16,6 @@ public final class UserMapper {
                 user.getUsername(),
                 user.getEmail(),
                 user.getStatus(),
-                user.getRoles().stream().map(Role::getName).collect(Collectors.toSet()));
+                user.getRoles().stream().map(Role::getName).map(Enum::name).collect(Collectors.toSet()));
     }
 }

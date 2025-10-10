@@ -1,9 +1,12 @@
 package com.xsh.trueused.entity;
 
 import com.xsh.trueused.common.BaseEntity;
+import com.xsh.trueused.enums.RoleName;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -19,8 +22,9 @@ import lombok.Setter;
 })
 public class Role extends BaseEntity {
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String name; // 例如: ROLE_USER, ROLE_ADMIN
+    private RoleName name; // 例如: ROLE_USER, ROLE_ADMIN
 
     @Column(length = 200)
     private String description;

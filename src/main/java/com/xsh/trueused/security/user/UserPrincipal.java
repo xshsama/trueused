@@ -37,6 +37,7 @@ public class UserPrincipal implements UserDetails {
     public static UserPrincipal from(User user) {
         Set<GrantedAuthority> authorities = user.getRoles().stream()
                 .map(Role::getName)
+                .map(Enum::name)
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toSet());
         boolean enabled = user.getStatus() != null && user.getStatus().name().equals("ACTIVE");

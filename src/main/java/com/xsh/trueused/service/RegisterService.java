@@ -34,7 +34,8 @@ public class RegisterService {
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setStatus(UserStatus.ACTIVE);
-        roleRepository.findByName("ROLE_USER").ifPresent(role -> user.getRoles().add(role));
+        roleRepository.findByName(com.xsh.trueused.enums.RoleName.ROLE_USER)
+                .ifPresent(role -> user.getRoles().add(role));
         User saved = userRepository.save(user);
         return UserMapper.toDTO(saved);
     }

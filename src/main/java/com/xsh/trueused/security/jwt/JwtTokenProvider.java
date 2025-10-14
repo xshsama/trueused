@@ -27,6 +27,9 @@ public class JwtTokenProvider {
     @Value("${security.jwt.expiration-ms:86400000}") // default 1 day
     private long expirationMs;
 
+    @Value("${security.jwt.refresh-expiration-ms:604800000}") // default 7 days
+    private long refreshExpirationMs;
+
     private SecretKey getSigningKey() {
         // Accept plain text or base64 secret
         byte[] keyBytes;
@@ -48,6 +51,7 @@ public class JwtTokenProvider {
                 .setExpiration(expiry)
                 .claim("uid", principal.getId())
                 .claim("roles", principal.getAuthorities().stream().map(a -> a.getAuthority()).toArray(String[]::new))
+                .claim("typ", "access")
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -59,16 +63,47 @@ public class JwtTokenProvider {
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiry)
+                .claim("typ", "access")
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
+    public String generateAccessTokenFromPrincipal(UserPrincipal principal) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + expirationMs);
+        return Jwts.builder()
+                .setSubject(principal.getUsername())
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .claim("uid", principal.getId())
+                .claim("roles", principal.getAuthorities().stream().map(a -> a.getAuthority()).toArray(String[]::new))
+                .claim("typ", "access")
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String generateRefreshTokenFromUser(UserDetails userDetails) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + refreshExpirationMs);
+        return Jwts.builder()
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .claim("typ", "refresh")
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public Claims parseAllClaims(String token) {
+        return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    public String getUsernameFromToken(String token) {
+        Claims claims = parseAllClaims(token);
         return claims.getSubject();
     }
 
@@ -79,5 +114,31 @@ public class JwtTokenProvider {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean isAccessToken(String token) {
+        try {
+            Claims claims = parseAllClaims(token);
+            return "access".equals(claims.get("typ", String.class));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isRefreshToken(String token) {
+        try {
+            Claims claims = parseAllClaims(token);
+            return "refresh".equals(claims.get("typ", String.class));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public long getAccessTokenExpirationMs() {
+        return expirationMs;
+    }
+
+    public long getRefreshTokenExpirationMs() {
+        return refreshExpirationMs;
     }
 }

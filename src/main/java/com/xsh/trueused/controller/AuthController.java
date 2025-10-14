@@ -1,6 +1,7 @@
 package com.xsh.trueused.controller;
 
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,5 +32,11 @@ public class AuthController {
     @PostMapping("/register")
     public UserDTO register(@RequestBody @Validated RegisterRequest request) {
         return registerService.register(request);
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(
+            @CookieValue(name = "refresh_token", required = false) String refreshToken) {
+        return loginService.refreshAccessToken(refreshToken);
     }
 }

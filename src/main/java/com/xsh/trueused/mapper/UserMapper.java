@@ -11,11 +11,20 @@ public final class UserMapper {
     }
 
     public static UserDTO toDTO(User user) {
-        return new UserDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getStatus(),
-                user.getRoles().stream().map(Role::getName).map(Enum::name).collect(Collectors.toSet()));
+    return new UserDTO(
+        user.getId(),
+        user.getUsername(),
+        user.getEmail(),
+        user.getStatus(),
+        user.getRoles().stream().map(Role::getName).map(Enum::name).collect(Collectors.toSet()),
+        user.getNickname(),
+        user.getAvatarUrl(),
+        user.getBio(),
+        user.getPhone(),
+        user.getEmailVerified(),
+        user.getPhoneVerified(),
+        user.getLastLoginAt(),
+        user.getBanReason(),
+        user.getBanUntil());
     }
 }

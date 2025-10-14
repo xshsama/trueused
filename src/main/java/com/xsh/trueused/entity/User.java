@@ -26,32 +26,63 @@ import lombok.Setter;
 @NoArgsConstructor
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_users_username", columnList = "username"),
-        @Index(name = "idx_users_email", columnList = "email")
+                @Index(name = "idx_users_username", columnList = "username"),
+                @Index(name = "idx_users_email", columnList = "email"),
+                @Index(name = "idx_users_nickname", columnList = "nickname"),
+                @Index(name = "idx_users_status", columnList = "status"),
+                @Index(name = "idx_users_last_login_at", columnList = "last_login_at")
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_username", columnNames = "username"),
-        @UniqueConstraint(name = "uk_users_email", columnNames = "email")
+                @UniqueConstraint(name = "uk_users_username", columnNames = "username"),
+                @UniqueConstraint(name = "uk_users_email", columnNames = "email")
 })
 public class User extends BaseEntity {
 
-    @Column(nullable = false, length = 50)
-    private String username;
+        @Column(nullable = false, length = 50)
+        private String username;
 
-    @Column(nullable = false, length = 120)
-    private String email;
+        @Column(nullable = false, length = 120)
+        private String email;
 
-    @Column(nullable = false, length = 200)
-    private String password; // 密码hash
+        @Column(nullable = false, length = 200)
+        private String password; // 密码hash
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private UserStatus status = UserStatus.ACTIVE;
+        @Enumerated(EnumType.STRING)
+        @Column(nullable = false, length = 20)
+        private UserStatus status = UserStatus.ACTIVE;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"), uniqueConstraints = @UniqueConstraint(name = "uk_user_role", columnNames = {
-            "user_id", "role_id" }), indexes = {
-                    @Index(name = "idx_user_roles_user", columnList = "user_id"),
-                    @Index(name = "idx_user_roles_role", columnList = "role_id")
-            })
-    private Set<Role> roles = new HashSet<>();
+        // MVP 个人资料最小集
+        @Column(name = "nickname", length = 50)
+        private String nickname;
+
+        @Column(name = "avatar_url", length = 255)
+        private String avatarUrl;
+
+        @Column(name = "bio", length = 300)
+        private String bio;
+
+        @Column(name = "phone", length = 20, unique = false)
+        private String phone;
+
+        @Column(name = "email_verified")
+        private Boolean emailVerified = Boolean.FALSE;
+
+        @Column(name = "phone_verified")
+        private Boolean phoneVerified = Boolean.FALSE;
+
+        @Column(name = "last_login_at")
+        private java.time.Instant lastLoginAt;
+
+        @Column(name = "ban_reason", length = 200)
+        private String banReason;
+
+        @Column(name = "ban_until")
+        private java.time.Instant banUntil;
+
+        @ManyToMany(fetch = FetchType.LAZY)
+        @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"), uniqueConstraints = @UniqueConstraint(name = "uk_user_role", columnNames = {
+                        "user_id", "role_id" }), indexes = {
+                                        @Index(name = "idx_user_roles_user", columnList = "user_id"),
+                                        @Index(name = "idx_user_roles_role", columnList = "role_id")
+                        })
+        private Set<Role> roles = new HashSet<>();
 }

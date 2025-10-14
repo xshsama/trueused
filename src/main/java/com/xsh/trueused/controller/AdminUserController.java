@@ -16,7 +16,7 @@ import com.xsh.trueused.service.AdminUserService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/admin/users")
 @RequiredArgsConstructor
 @Validated
 public class AdminUserController {

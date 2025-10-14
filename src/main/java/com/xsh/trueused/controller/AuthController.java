@@ -39,4 +39,10 @@ public class AuthController {
             @CookieValue(name = "refresh_token", required = false) String refreshToken) {
         return loginService.refreshAccessToken(refreshToken);
     }
+
+    @PostMapping("/logout")
+    public void logout() {
+        // 清理服务端下发的 refresh_token Cookie
+        loginService.logout();
+    }
 }

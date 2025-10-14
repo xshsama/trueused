@@ -10,9 +10,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.xsh.trueused.dto.LoginRequest;
 import com.xsh.trueused.dto.LoginResponse;
@@ -118,5 +118,24 @@ public class LoginService {
                 accessToken,
                 expiresInMs,
                 roles);
+    }
+
+    /**
+     * 登出：通过设置过期的 refresh_token Cookie 来清除浏览器端保存的刷新令牌。
+     * 如果后续引入刷新令牌持久化（jti 黑名单/会话表），这里也应当撤销服务端状态。
+     */
+    public void logout() {
+        // 清除 Cookie：与设置时的属性保持一致（path/samesite/secure），以确保浏览器能覆盖删除
+        ResponseCookie expired = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs != null && attrs.getResponse() != null) {
+            attrs.getResponse().addHeader("Set-Cookie", expired.toString());
+        }
     }
 }

@@ -61,7 +61,7 @@ public class Product extends BaseEntity {
     private ProductStatus status = ProductStatus.DRAFT;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "condition", length = 20)
+    @Column(name = "item_condition", length = 20)
     private ProductCondition condition;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -71,10 +71,10 @@ public class Product extends BaseEntity {
     @Column(name = "location_text", length = 100)
     private String locationText;
 
-    @Column(precision = 9, scale = 6)
+    @Column
     private Double lat;
 
-    @Column(precision = 9, scale = 6)
+    @Column
     private Double lng;
 
     @Column(name = "views_count", nullable = false)

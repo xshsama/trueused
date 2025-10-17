@@ -40,7 +40,8 @@ public class UserPrincipal implements UserDetails {
                 .map(Enum::name)
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toSet());
-        boolean enabled = user.getStatus() != null && user.getStatus().name().equals("ACTIVE");
+        // 兼容历史数据：status 为空时按 ACTIVE 处理，避免被视为禁用
+        boolean enabled = (user.getStatus() == null) || user.getStatus().name().equals("ACTIVE");
         return new UserPrincipal(
                 user.getId(),
                 user.getUsername(),

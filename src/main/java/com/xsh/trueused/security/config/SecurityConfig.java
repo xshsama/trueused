@@ -74,15 +74,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // 明确允许的来源，使用通配符与 allowCredentials 一起会被拒绝
-        config.setAllowedOrigins(java.util.List.of(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173"
-        // 如有生产域名，按需添加："https://your-domain.com"
-        ));
+        // 允许本机与局域网 IP 的任意端口（开发环境），生产请精确到具体域名
+        config.setAllowedOriginPatterns(java.util.List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*.*:*",
+                "http://10.*.*.*:*"));
         config.setAllowCredentials(true);
         config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "X-Requested-With"));
+        // 放宽请求头，避免预检因为自定义头/浏览器头失败
+        config.setAllowedHeaders(java.util.List.of("*"));
         // 如果前端需要读取自定义响应头（如 Authorization），需要暴露
         config.setExposedHeaders(java.util.List.of("Authorization"));
         config.setMaxAge(3600L);

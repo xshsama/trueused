@@ -42,7 +42,7 @@ public class ProductService {
         Product p = new Product();
         p.setSeller(seller);
         applyCreate(req, p);
-        p.setStatus(ProductStatus.PUBLISHED); // 直接发布（后续可调整发布策略）
+        p.setStatus(ProductStatus.AVAILABLE); // 直接发布（后续可调整发布策略）
         Product saved = productRepository.save(p);
         return ProductMapper.toDTO(saved);
     }
@@ -77,7 +77,7 @@ public class ProductService {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         Specification<Product> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
-            predicates.add(cb.equal(root.get("status"), ProductStatus.PUBLISHED));
+            predicates.add(cb.equal(root.get("status"), ProductStatus.AVAILABLE));
             predicates.add(cb.equal(root.get("isDeleted"), Boolean.FALSE));
             if (q != null && !q.isBlank()) {
                 String pattern = "%" + q.trim() + "%";

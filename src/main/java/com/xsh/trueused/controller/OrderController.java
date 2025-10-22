@@ -6,13 +6,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.xsh.trueused.dto.CreateOrderRequest;
 import com.xsh.trueused.dto.OrderDTO;
+import com.xsh.trueused.enums.OrderStatus;
 import com.xsh.trueused.security.user.UserPrincipal;
 import com.xsh.trueused.service.OrderService;
 
@@ -40,5 +44,19 @@ public class OrderController {
     public ResponseEntity<List<OrderDTO>> getSoldOrders(@AuthenticationPrincipal UserPrincipal currentUser) {
         List<OrderDTO> orders = orderService.getOrdersBySeller(currentUser.getId());
         return ResponseEntity.ok(orders);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderDTO> getOrderById(@PathVariable Long id) {
+        OrderDTO order = orderService.getOrderById(id);
+        return ResponseEntity.ok(order);
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<OrderDTO> updateOrderStatus(@PathVariable Long id,
+            @RequestParam("status") OrderStatus newStatus,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        OrderDTO updatedOrder = orderService.updateOrderStatus(id, newStatus, currentUser.getId());
+        return ResponseEntity.ok(updatedOrder);
     }
 }

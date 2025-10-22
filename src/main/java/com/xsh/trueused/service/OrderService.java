@@ -80,4 +80,47 @@ public class OrderService {
                 .map(OrderMapper.INSTANCE::toDTO)
                 .collect(Collectors.toList());
     }
+
+    public OrderDTO getOrderById(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        return OrderMapper.INSTANCE.toDTO(order);
+    }
+
+    @Transactional
+    public OrderDTO updateOrderStatus(Long orderId, OrderStatus newStatus, Long userId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // 验证用户是否有权修改订单状态
+        boolean isBuyer = order.getBuyer().getId().equals(userId);
+        boolean isSeller = order.getSeller().getId().equals(userId);
+
+        if (!isBuyer && !isSeller) {
+            throw new RuntimeException("You are not authorized to update this order");
+        }
+
+        // 根据角色和当前状态验证状态转换的有效性
+        switch (order.getStatus()) {
+            case PENDING:
+                if (isSeller && newStatus == OrderStatus.SHIPPED) {
+                    order.setStatus(newStatus);
+                } else {
+                    throw new RuntimeException("Invalid status transition");
+                }
+                break;
+            case SHIPPED:
+                if (isBuyer && newStatus == OrderStatus.DELIVERED) {
+                    order.setStatus(newStatus);
+                } else {
+                    throw new RuntimeException("Invalid status transition");
+                }
+                break;
+            default:
+                throw new RuntimeException("Order status cannot be updated");
+        }
+
+        Order updatedOrder = orderRepository.save(order);
+        return OrderMapper.INSTANCE.toDTO(updatedOrder);
+    }
 }

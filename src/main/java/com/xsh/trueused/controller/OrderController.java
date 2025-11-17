@@ -11,12 +11,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.xsh.trueused.dto.CreateOrderRequest;
 import com.xsh.trueused.dto.OrderDTO;
-import com.xsh.trueused.enums.OrderStatus;
 import com.xsh.trueused.security.user.UserPrincipal;
 import com.xsh.trueused.service.OrderService;
 
@@ -52,11 +50,24 @@ public class OrderController {
         return ResponseEntity.ok(order);
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<OrderDTO> updateOrderStatus(@PathVariable Long id,
-            @RequestParam("status") OrderStatus newStatus,
+    @PutMapping("/{id}/pay")
+    public ResponseEntity<OrderDTO> payOrder(@PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        OrderDTO updatedOrder = orderService.updateOrderStatus(id, newStatus, currentUser.getId());
+        OrderDTO updatedOrder = orderService.payOrder(id, currentUser.getId());
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+    @PutMapping("/{id}/ship")
+    public ResponseEntity<OrderDTO> shipOrder(@PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        OrderDTO updatedOrder = orderService.shipOrder(id, currentUser.getId());
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+    @PutMapping("/{id}/confirm-delivery")
+    public ResponseEntity<OrderDTO> confirmOrderDelivery(@PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        OrderDTO updatedOrder = orderService.confirmOrderDelivery(id, currentUser.getId());
         return ResponseEntity.ok(updatedOrder);
     }
 }

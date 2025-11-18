@@ -55,14 +55,19 @@ public class UsersController {
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND));
 
-        if (req.nickname() != null)
+        if (req.nickname() != null) {
             user.setNickname(req.nickname());
-        if (req.avatarUrl() != null)
+        }
+        // 仅在非空白字符串时更新 avatarUrl，避免被空字符串覆盖
+        if (req.avatarUrl() != null && !req.avatarUrl().isBlank()) {
             user.setAvatarUrl(req.avatarUrl());
-        if (req.bio() != null)
+        }
+        if (req.bio() != null) {
             user.setBio(req.bio());
-        if (req.phone() != null)
+        }
+        if (req.phone() != null) {
             user.setPhone(req.phone());
+        }
 
         User saved = userRepository.save(user);
         return UserMapper.toDTO(saved);

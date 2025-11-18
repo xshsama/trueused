@@ -1,0 +1,49 @@
+-- ================================================
+-- Flyway V1 初始化脚本模板（示例/请根据实际库补全）
+-- 文件用途：作为可重建环境的首版迁移。准备就绪后请重命名为：
+--   V1__init.sql
+-- 注意：当前为模板文件（.example），不会被 Flyway 执行。
+-- ================================================
+
+-- 建议：在开发机导出“结构（无数据）”并清理为最小 SQL：
+--   mysqldump -u <user> -p --no-data --skip-comments --databases <db_name> > /tmp/schema.sql
+--   手工移除：CREATE DATABASE/USE/DEFINER/触发器/存储过程等项目外对象
+--   确保所有表使用相同字符集与引擎，如：ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+
+-- 例：统一库级字符集（可选/按需）：
+-- ALTER DATABASE `trueused` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+
+-- 例：基础表结构（仅示例，请以实际为准）
+-- CREATE TABLE `users` (
+--   `id`            BIGINT NOT NULL PRIMARY KEY,
+--   `created_at`    DATETIME(6) NOT NULL,
+--   `updated_at`    DATETIME(6) NOT NULL,
+--   `username`      VARCHAR(50)  NOT NULL,
+--   `email`         VARCHAR(120) NOT NULL,
+--   `password`      VARCHAR(200) NOT NULL,
+--   `status`        VARCHAR(20)  NOT NULL,
+--   `nickname`      VARCHAR(50)  NULL,
+--   `avatar_url`    VARCHAR(255) NULL,
+--   `bio`           VARCHAR(300) NULL,
+--   `phone`         VARCHAR(20)  NULL,
+--   `email_verified` TINYINT(1)  NULL,
+--   `phone_verified` TINYINT(1)  NULL,
+--   `last_login_at` DATETIME(6)  NULL,
+--   `ban_reason`    VARCHAR(200) NULL,
+--   `ban_until`     DATETIME(6)  NULL,
+--   UNIQUE KEY `uk_users_username` (`username`),
+--   UNIQUE KEY `uk_users_email` (`email`),
+--   KEY `idx_users_username` (`username`),
+--   KEY `idx_users_email` (`email`),
+--   KEY `idx_users_nickname` (`nickname`),
+--   KEY `idx_users_status` (`status`),
+--   KEY `idx_users_last_login_at` (`last_login_at`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 例：角色、关联表、产品/类目/收藏等其余表结构请一并补齐
+
+-- 完成后操作：
+-- 1) 将本文件重命名为 V1__init.sql（去掉 .example）
+-- 2) application.properties 中在“已有库接管完成后”可关闭：
+--    spring.flyway.baseline-on-migrate=false
+-- 3) 在新环境（空库）验证：启动应用 → Flyway 应用 V1 → JPA validate 通过

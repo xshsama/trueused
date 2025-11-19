@@ -70,4 +70,11 @@ public class OrderController {
         OrderDTO updatedOrder = orderService.confirmOrderDelivery(id, currentUser.getId());
         return ResponseEntity.ok(updatedOrder);
     }
+
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<OrderDTO> cancelOrder(@PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        OrderDTO updatedOrder = orderService.cancelOrder(id, currentUser.getId());
+        return ResponseEntity.ok(updatedOrder);
+    }
 }

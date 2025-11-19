@@ -29,6 +29,8 @@
 	<properties>
 		<java.version>17</java.version>
 		<org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
+		<!-- 显式管理 Flyway 版本，便于按需升级以兼容 MySQL 9.x -->
+		<flyway.version>11.10.0</flyway.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -58,10 +60,16 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
-		<!-- Flyway 数据库迁移 -->
+		<!-- Flyway 数据库迁移（显式版本 + MySQL 模块） -->
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>
+			<version>${flyway.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-mysql</artifactId>
+			<version>${flyway.version}</version>
 		</dependency>
 
 		<dependency>

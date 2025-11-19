@@ -17,7 +17,7 @@ import com.xsh.trueused.service.FavoriteService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/favorites")
+@RequestMapping("/api/favorites")
 @RequiredArgsConstructor
 public class FavoriteController {
     private final FavoriteService favoriteService;

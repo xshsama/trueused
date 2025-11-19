@@ -17,7 +17,7 @@ import com.xsh.trueused.service.RegisterService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Validated
 public class AuthController {

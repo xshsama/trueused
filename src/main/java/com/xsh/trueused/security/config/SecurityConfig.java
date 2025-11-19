@@ -54,11 +54,14 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 预检请求放行
-                        .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/error")
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh",
+                                "/api/auth/logout", "/error")
                         .permitAll()
-                        .requestMatchers("/products/**", "/categories/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/orders/**").authenticated()
+                        .requestMatchers("/api/products/**", "/api/categories/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/orders/**", "/api/favorites/**", "/api/users/**",
+                                "/api/conversations/**", "/api/cloudinary/**")
+                        .authenticated()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint())

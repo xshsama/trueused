@@ -91,21 +91,24 @@ public class OrderService {
         productRepository.save(product);
 
         // 8. 转换并返回 DTO
-        return OrderMapper.INSTANCE.toDTO(savedOrder);
+        return getOrderById(savedOrder.getId());
     }
 
+    @Transactional(readOnly = true)
     public List<OrderDTO> getOrdersByBuyer(Long buyerId) {
         return orderRepository.findByBuyerId(buyerId).stream()
                 .map(OrderMapper.INSTANCE::toDTO)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<OrderDTO> getOrdersBySeller(Long sellerId) {
         return orderRepository.findBySellerId(sellerId).stream()
                 .map(OrderMapper.INSTANCE::toDTO)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public OrderDTO getOrderById(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
@@ -126,8 +129,8 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.PAID);
-        Order updatedOrder = orderRepository.save(order);
-        return OrderMapper.INSTANCE.toDTO(updatedOrder);
+        orderRepository.save(order);
+        return getOrderById(orderId);
     }
 
     @Transactional
@@ -144,8 +147,8 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.SHIPPED);
-        Order updatedOrder = orderRepository.save(order);
-        return OrderMapper.INSTANCE.toDTO(updatedOrder);
+        orderRepository.save(order);
+        return getOrderById(orderId);
     }
 
     @Transactional
@@ -163,14 +166,14 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.COMPLETED);
-        Order updatedOrder = orderRepository.save(order);
+        orderRepository.save(order);
 
         // TODO: Archive the product after order completion
         Product product = order.getProduct();
         System.out
                 .println("Order " + order.getId() + " completed. Product " + product.getId() + " should be archived.");
 
-        return OrderMapper.INSTANCE.toDTO(updatedOrder);
+        return getOrderById(orderId);
     }
 
     @Transactional
@@ -194,13 +197,13 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
-        Order updatedOrder = orderRepository.save(order);
+        orderRepository.save(order);
 
         // 将商品状态恢复为可购买
         Product product = order.getProduct();
         product.setStatus(ProductStatus.AVAILABLE);
         productRepository.save(product);
 
-        return OrderMapper.INSTANCE.toDTO(updatedOrder);
+        return getOrderById(orderId);
     }
 }

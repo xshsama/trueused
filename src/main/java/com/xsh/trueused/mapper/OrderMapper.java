@@ -1,14 +1,28 @@
 package com.xsh.trueused.mapper;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.factory.Mappers;
-
 import com.xsh.trueused.dto.OrderDTO;
 import com.xsh.trueused.entity.Order;
 
-@Mapper(uses = { UserMapper.class, ProductMapper.class })
-public interface OrderMapper {
-    OrderMapper INSTANCE = Mappers.getMapper(OrderMapper.class);
+public final class OrderMapper {
+    private OrderMapper() {
+    }
 
-    OrderDTO toDTO(Order order);
+    public static final OrderMapper INSTANCE = new OrderMapper();
+
+    public OrderDTO toDTO(Order order) {
+        if (order == null)
+            return null;
+        OrderDTO dto = new OrderDTO();
+        dto.setId(order.getId());
+        dto.setBuyer(UserMapper.toDTO(order.getBuyer()));
+        dto.setSeller(UserMapper.toDTO(order.getSeller()));
+        dto.setProduct(ProductMapper.toDTO(order.getProduct()));
+        // map address using AddressMapper if available
+        dto.setAddress(AddressMapper.INSTANCE == null ? null : AddressMapper.INSTANCE.toDTO(order.getAddress()));
+        dto.setPrice(order.getPrice());
+        dto.setStatus(order.getStatus());
+        dto.setCreatedAt(order.getCreatedAt());
+        dto.setUpdatedAt(order.getUpdatedAt());
+        return dto;
+    }
 }

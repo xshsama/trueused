@@ -155,6 +155,17 @@
 					</excludes>
 				</configuration>
 			</plugin>
+			<plugin>
+    <groupId>org.flywaydb</groupId>
+    <artifactId>flyway-maven-plugin</artifactId>
+    <version>${flyway.version}</version>
+    <configuration>
+        <url>jdbc:mysql://localhost:1100/trueused?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=Asia/Shanghai</url>
+        <user>root</user>
+        <password>ying200568</password>
+    </configuration>
+</plugin>
+
 		</plugins>
 	</build>
 

@@ -1,5 +1,6 @@
 package com.xsh.trueused.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.xsh.trueused.common.BaseEntity;
 
 import jakarta.persistence.Column;
@@ -19,6 +20,7 @@ public class Address extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @Column(nullable = false, length = 50)
@@ -41,4 +43,7 @@ public class Address extends BaseEntity {
 
     @Column(nullable = false)
     private Boolean isDefault = false;
+
+    @Column(length = 20)
+    private String areaCode;
 }

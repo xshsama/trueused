@@ -13,6 +13,7 @@ public class OrderDTO {
     private UserDTO buyer;
     private UserDTO seller;
     private ProductDTO product;
+    private AddressDTO address;
     private BigDecimal price;
     private OrderStatus status;
     private Instant createdAt;

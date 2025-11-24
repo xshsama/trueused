@@ -1,11 +1,15 @@
 package com.xsh.trueused.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +28,9 @@ import com.xsh.trueused.repository.AddressRepository;
 import com.xsh.trueused.repository.OrderRepository;
 import com.xsh.trueused.repository.ProductRepository;
 import com.xsh.trueused.repository.UserRepository;
+
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
 
 @Service
 public class OrderService {
@@ -102,10 +109,30 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderDTO> getOrdersBySeller(Long sellerId) {
-        return orderRepository.findBySellerId(sellerId).stream()
-                .map(OrderMapper.INSTANCE::toDTO)
-                .collect(Collectors.toList());
+    public Page<OrderDTO> getOrdersBySeller(Long sellerId, String productName, String orderId, String buyerName,
+            Pageable pageable) {
+        Specification<Order> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("seller").get("id"), sellerId));
+
+            if (productName != null && !productName.isEmpty()) {
+                Join<Order, Product> productJoin = root.join("product");
+                predicates.add(cb.like(productJoin.get("title"), "%" + productName + "%"));
+            }
+
+            if (orderId != null && !orderId.isEmpty()) {
+                predicates.add(cb.equal(root.get("id"), orderId));
+            }
+
+            if (buyerName != null && !buyerName.isEmpty()) {
+                Join<Order, User> buyerJoin = root.join("buyer");
+                predicates.add(cb.like(buyerJoin.get("username"), "%" + buyerName + "%"));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return orderRepository.findAll(spec, pageable).map(OrderMapper.INSTANCE::toDTO);
     }
 
     @Transactional(readOnly = true)
@@ -200,6 +227,29 @@ public class OrderService {
         orderRepository.save(order);
 
         // 将商品状态恢复为可购买
+        Product product = order.getProduct();
+        product.setStatus(ProductStatus.AVAILABLE);
+        productRepository.save(product);
+
+        return getOrderById(orderId);
+    }
+
+    @Transactional
+    public OrderDTO refundOrder(Long orderId, Long sellerId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (!order.getSeller().getId().equals(sellerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to refund this order");
+        }
+
+        if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.SHIPPED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be refunded at its current stage");
+        }
+
+        order.setStatus(OrderStatus.REFUNDED);
+        orderRepository.save(order);
+
         Product product = order.getProduct();
         product.setStatus(ProductStatus.AVAILABLE);
         productRepository.save(product);

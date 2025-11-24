@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.xsh.trueused.dto.ProductCreateRequest;
 import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ProductUpdateRequest;
+import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.security.user.UserPrincipal;
 import com.xsh.trueused.service.ProductService;
 
@@ -41,6 +42,19 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return productService.search(q, categoryId, priceMin, priceMax, sort, page, size);
+    }
+
+    @GetMapping("/my")
+    public Page<ProductDTO> myProducts(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) ProductStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        return productService.findMyProducts(principal.getId(), q, status, page, size);
     }
 
     @GetMapping("/{id}")
@@ -79,6 +93,32 @@ public class ProductController {
                     org.springframework.http.HttpStatus.UNAUTHORIZED);
         try {
             productService.delete(id, principal.getId());
+        } catch (SecurityException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/publish")
+    public ProductDTO publish(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        try {
+            return productService.publishProduct(id, principal.getId());
+        } catch (SecurityException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/hide")
+    public ProductDTO hide(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        try {
+            return productService.hideProduct(id, principal.getId());
         } catch (SecurityException e) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.FORBIDDEN, e.getMessage());

@@ -177,4 +177,44 @@ public class ProductService {
             }
         }
     }
+
+    @Transactional
+    public ProductDTO publishProduct(Long id, Long sellerId) {
+        Product p = productRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        if (!Objects.equals(p.getSeller().getId(), sellerId)) {
+            throw new SecurityException("无权操作");
+        }
+        p.setStatus(ProductStatus.AVAILABLE);
+        return ProductMapper.toDTO(p);
+    }
+
+    @Transactional
+    public ProductDTO hideProduct(Long id, Long sellerId) {
+        Product p = productRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        if (!Objects.equals(p.getSeller().getId(), sellerId)) {
+            throw new SecurityException("无权操作");
+        }
+        p.setStatus(ProductStatus.HIDDEN);
+        return ProductMapper.toDTO(p);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductDTO> findMyProducts(Long sellerId, String q, ProductStatus status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Specification<Product> spec = (root, query, cb) -> {
+            java.util.List<Predicate> predicates = new java.util.ArrayList<>();
+            predicates.add(cb.equal(root.get("seller").get("id"), sellerId));
+            predicates.add(cb.equal(root.get("isDeleted"), Boolean.FALSE));
+
+            if (q != null && !q.isBlank()) {
+                String pattern = "%" + q.trim() + "%";
+                predicates.add(cb.like(root.get("title"), pattern));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO);
+    }
 }

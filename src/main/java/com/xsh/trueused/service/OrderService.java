@@ -1,5 +1,7 @@
 package com.xsh.trueused.service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -11,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -255,5 +258,24 @@ public class OrderService {
         productRepository.save(product);
 
         return getOrderById(orderId);
+    }
+
+    @Scheduled(fixedRate = 60000) // 每分钟检查一次
+    @Transactional
+    public void cancelExpiredOrders() {
+        Instant expirationTime = Instant.now().minus(15, ChronoUnit.MINUTES);
+        List<Order> expiredOrders = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.PENDING, expirationTime);
+
+        for (Order order : expiredOrders) {
+            log.info("Cancelling expired order: {}", order.getId());
+            order.setStatus(OrderStatus.CANCELLED);
+
+            // 恢复商品库存/状态
+            Product product = order.getProduct();
+            product.setStatus(ProductStatus.AVAILABLE);
+            productRepository.save(product);
+
+            orderRepository.save(order);
+        }
     }
 }

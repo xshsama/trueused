@@ -73,7 +73,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<ProductDTO> search(String q, Long categoryId, BigDecimal priceMin, BigDecimal priceMax, String sort,
-            int page, int size) {
+            int page, int size, Long excludeSellerId) {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         Specification<Product> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
@@ -91,6 +91,10 @@ public class ProductService {
             }
             if (priceMax != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("price"), priceMax));
+            }
+            // 排除当前用户发布的商品
+            if (excludeSellerId != null) {
+                predicates.add(cb.notEqual(root.get("seller").get("id"), excludeSellerId));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

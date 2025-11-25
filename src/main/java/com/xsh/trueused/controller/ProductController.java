@@ -40,8 +40,10 @@ public class ProductController {
             @RequestParam(required = false) BigDecimal priceMax,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return productService.search(q, categoryId, priceMin, priceMax, sort, page, size);
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long excludeSellerId = principal != null ? principal.getId() : null;
+        return productService.search(q, categoryId, priceMin, priceMax, sort, page, size, excludeSellerId);
     }
 
     @GetMapping("/my")

@@ -19,7 +19,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -35,8 +34,6 @@ import lombok.Setter;
                 @Index(name = "idx_products_price", columnList = "price"),
                 @Index(name = "idx_products_created_at", columnList = "created_at"),
                 @Index(name = "idx_products_title", columnList = "title")
-}, uniqueConstraints = {
-                @UniqueConstraint(name = "uk_products_title_seller", columnNames = { "seller_id", "title" })
 })
 public class Product extends BaseEntity {
 

@@ -1,5 +1,6 @@
 package com.xsh.trueused.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import com.xsh.trueused.entity.Order;
+import com.xsh.trueused.enums.OrderStatus;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
@@ -21,4 +23,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Override
     @EntityGraph(attributePaths = { "buyer", "seller", "product", "address" })
     Optional<Order> findById(Long id);
+
+    List<Order> findByStatusAndCreatedAtBefore(OrderStatus status, Instant dateTime);
 }

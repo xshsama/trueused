@@ -18,4 +18,15 @@ public class OrderDTO {
     private OrderStatus status;
     private Instant createdAt;
     private Instant updatedAt;
+
+    // 物流信息
+    private String trackingNumber;
+    private String expressCompany;
+    private String expressCode;
+    private Instant shippedAt;
+    private Instant estimatedDeliveryTime;
+    private Instant deliveredAt;
+
+    // 详细物流追踪信息（可选，按需加载）
+    private ShippingInfoDTO shippingInfo;
 }

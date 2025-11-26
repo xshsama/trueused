@@ -23,6 +23,15 @@ public final class OrderMapper {
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
+
+        // 物流信息映射
+        dto.setTrackingNumber(order.getTrackingNumber());
+        dto.setExpressCompany(order.getExpressCompany());
+        dto.setExpressCode(order.getExpressCode());
+        dto.setShippedAt(order.getShippedAt());
+        dto.setEstimatedDeliveryTime(order.getEstimatedDeliveryTime());
+        dto.setDeliveredAt(order.getDeliveredAt());
+
         return dto;
     }
 }

@@ -20,6 +20,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.xsh.trueused.dto.CreateOrderRequest;
 import com.xsh.trueused.dto.OrderDTO;
+import com.xsh.trueused.dto.ShipOrderRequest;
+import com.xsh.trueused.dto.ShippingInfoDTO;
 import com.xsh.trueused.entity.Address;
 import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.Product;
@@ -51,6 +53,9 @@ public class OrderService {
 
     @Autowired
     private AddressRepository addressRepository;
+
+    @Autowired
+    private ShippingService shippingService;
 
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest createOrderRequest, Long buyerId) {
@@ -164,7 +169,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderDTO shipOrder(Long orderId, Long sellerId) {
+    public OrderDTO shipOrder(Long orderId, Long sellerId, ShipOrderRequest shipRequest) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
@@ -176,9 +181,60 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be shipped");
         }
 
+        // 获取快递公司，如果请求中没有提供则使用默认值
+        String expressCompany = (shipRequest != null && shipRequest.getExpressCompany() != null)
+                ? shipRequest.getExpressCompany()
+                : "顺丰速运";
+        String trackingNumber = (shipRequest != null) ? shipRequest.getTrackingNumber() : null;
+
+        // 获取发货地址信息
+        String senderCity = (shipRequest != null && shipRequest.getSenderCity() != null)
+                ? shipRequest.getSenderCity()
+                : "发货地";
+        String senderDistrict = (shipRequest != null && shipRequest.getSenderDistrict() != null)
+                ? shipRequest.getSenderDistrict()
+                : "";
+
+        // 获取买家收货地址
+        Address receiverAddress = order.getAddress();
+
+        // 调用物流服务创建快递订单
+        ShippingInfoDTO shippingInfo = shippingService.createShippingOrder(
+                expressCompany,
+                trackingNumber,
+                senderCity,
+                senderDistrict,
+                receiverAddress);
+
+        // 更新订单物流信息
+        order.setTrackingNumber(shippingInfo.getTrackingNumber());
+        order.setExpressCompany(shippingInfo.getExpressCompany());
+        order.setExpressCode(shippingInfo.getExpressCode());
+        order.setShippedAt(shippingInfo.getShippedAt());
+        order.setEstimatedDeliveryTime(shippingInfo.getEstimatedDeliveryTime());
         order.setStatus(OrderStatus.SHIPPED);
+
         orderRepository.save(order);
-        return getOrderById(orderId);
+
+        // 返回包含物流信息的订单DTO
+        OrderDTO orderDTO = getOrderById(orderId);
+        orderDTO.setShippingInfo(shippingInfo);
+        return orderDTO;
+    }
+
+    /**
+     * 获取订单物流追踪信息
+     */
+    @Transactional(readOnly = true)
+    public ShippingInfoDTO getOrderShippingInfo(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (order.getTrackingNumber() == null) {
+            return null;
+        }
+
+        return shippingService.getShippingInfo(order.getTrackingNumber());
     }
 
     @Transactional
@@ -196,6 +252,7 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.COMPLETED);
+        order.setDeliveredAt(Instant.now());
         orderRepository.save(order);
 
         // TODO: Archive the product after order completion

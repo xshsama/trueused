@@ -20,8 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.xsh.trueused.dto.CreateOrderRequest;
 import com.xsh.trueused.dto.OrderDTO;
+import com.xsh.trueused.dto.ShipOrderRequest;
+import com.xsh.trueused.dto.ShippingInfoDTO;
 import com.xsh.trueused.security.user.UserPrincipal;
 import com.xsh.trueused.service.OrderService;
+import com.xsh.trueused.service.ShippingService;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -29,6 +32,9 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private ShippingService shippingService;
 
     @PostMapping
     public ResponseEntity<OrderDTO> createOrder(@RequestBody CreateOrderRequest createOrderRequest,
@@ -68,11 +74,32 @@ public class OrderController {
         return ResponseEntity.ok(updatedOrder);
     }
 
+    /**
+     * 发货接口 - 支持传入快递公司和单号
+     */
     @PutMapping("/{id}/ship")
     public ResponseEntity<OrderDTO> shipOrder(@PathVariable Long id,
+            @RequestBody(required = false) ShipOrderRequest shipRequest,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        OrderDTO updatedOrder = orderService.shipOrder(id, currentUser.getId());
+        OrderDTO updatedOrder = orderService.shipOrder(id, currentUser.getId(), shipRequest);
         return ResponseEntity.ok(updatedOrder);
+    }
+
+    /**
+     * 获取订单物流追踪信息
+     */
+    @GetMapping("/{id}/shipping")
+    public ResponseEntity<ShippingInfoDTO> getOrderShipping(@PathVariable Long id) {
+        ShippingInfoDTO shippingInfo = orderService.getOrderShippingInfo(id);
+        return ResponseEntity.ok(shippingInfo);
+    }
+
+    /**
+     * 获取支持的快递公司列表
+     */
+    @GetMapping("/express-companies")
+    public ResponseEntity<List<String>> getExpressCompanies() {
+        return ResponseEntity.ok(shippingService.getSupportedExpressCompanies());
     }
 
     @PutMapping("/{id}/confirm-delivery")

@@ -10,5 +10,8 @@ public enum OrderStatus {
     DELIVERED, // 已送达
     COMPLETED, // 已完成
     CANCELLED, // 已取消
+    REFUND_PENDING, // 退款申请中
+    REFUND_APPROVED, // 退款已同意
+    RETURN_PENDING, // 等待退货
     REFUNDED // 已退款
 }

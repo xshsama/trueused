@@ -1,40 +1,80 @@
 package com.xsh.trueused.controller;
 
-import java.util.Collections;
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.xsh.trueused.dto.ChatMessageDTO;
+import com.xsh.trueused.dto.ConversationDTO;
 import com.xsh.trueused.entity.Conversation;
-import com.xsh.trueused.entity.Message;
+import com.xsh.trueused.entity.User;
+import com.xsh.trueused.security.user.UserPrincipal;
+import com.xsh.trueused.service.ConversationService;
+import com.xsh.trueused.service.MessageService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/conversations")
+@RequiredArgsConstructor
 public class ConversationController {
 
-    // 在实际应用中，这里应该注入 ConversationService 和 MessageService
+    private final ConversationService conversationService;
+    private final MessageService messageService;
 
     @GetMapping
-    public ResponseEntity<List<Conversation>> getConversations() {
-        // TODO: 实现获取当前用户会话列表的逻辑
-        // 1. 从 SecurityContext 获取当前用户ID。
-        // 2. 查询数据库中 participant1_id 或 participant2_id 为当前用户ID的所有会话。
-        // 3. 按 lastMessage 的时间戳降序排序。
-        // 4. 返回会话列表的 DTO。
-        return ResponseEntity.ok(Collections.emptyList());
+    public ResponseEntity<List<ConversationDTO>> getConversations(@AuthenticationPrincipal UserPrincipal currentUser) {
+        List<ConversationDTO> conversations = conversationService.getUserConversations(currentUser.getId());
+        return ResponseEntity.ok(conversations);
     }
 
     @GetMapping("/{conversationId}/messages")
-    public ResponseEntity<List<Message>> getMessages(@PathVariable Long conversationId) {
-        // TODO: 实现获取会话历史消息的逻辑
-        // 1. 验证当前用户是否是该会话的参与者之一。
-        // 2. 根据 conversationId 查询消息，并按时间升序排序。
-        // 3. 实现分页逻辑。
-        // 4. 返回消息列表的 DTO。
-        return ResponseEntity.ok(Collections.emptyList());
+    public ResponseEntity<List<ChatMessageDTO>> getMessages(
+            @PathVariable Long conversationId,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        List<ChatMessageDTO> messages = messageService.getMessages(conversationId, currentUser.getId(), pageable);
+
+        // Mark as read when fetching
+        messageService.markAsRead(conversationId, currentUser.getId());
+
+        return ResponseEntity.ok(messages);
+    }
+
+    @PostMapping("/start")
+    public ResponseEntity<ConversationDTO> startConversation(
+            @RequestParam Long userId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        Conversation conversation = conversationService.getOrCreateConversation(currentUser.getId(), userId);
+
+        // Convert to DTO
+        ConversationDTO dto = new ConversationDTO();
+        dto.setId(conversation.getId());
+
+        User otherUser = conversation.getParticipant1().getId().equals(currentUser.getId())
+                ? conversation.getParticipant2()
+                : conversation.getParticipant1();
+
+        dto.setOtherUserId(otherUser.getId());
+        dto.setOtherUserName(otherUser.getNickname() != null ? otherUser.getNickname() : otherUser.getUsername());
+        dto.setOtherUserAvatar(otherUser.getAvatarUrl());
+
+        if (conversation.getLastMessage() != null) {
+            dto.setLastMessage(conversation.getLastMessage().getContent());
+            dto.setLastMessageTime(conversation.getLastMessage().getCreatedAt());
+        }
+
+        return ResponseEntity.ok(dto);
     }
 }

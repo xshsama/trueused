@@ -6,33 +6,56 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
+import com.xsh.trueused.dto.ChatMessageDTO;
+import com.xsh.trueused.dto.SendMessageRequest;
+import com.xsh.trueused.entity.User;
+import com.xsh.trueused.repository.UserRepository;
 import com.xsh.trueused.security.user.UserPrincipal;
+import com.xsh.trueused.service.MessageService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Controller
+@RequiredArgsConstructor
+@Slf4j
 public class MessageController {
 
-    private final SimpMessagingTemplate simpMessagingTemplate;
+        private final SimpMessagingTemplate simpMessagingTemplate;
+        private final MessageService messageService;
+        private final UserRepository userRepository;
 
-    public MessageController(SimpMessagingTemplate simpMessagingTemplate) {
-        this.simpMessagingTemplate = simpMessagingTemplate;
-    }
+        @MessageMapping("/chat")
+        public void sendChatMessage(@Payload SendMessageRequest request,
+                        @AuthenticationPrincipal UserPrincipal sender) {
+                if (sender == null) {
+                        log.error("Sender is null. Authentication might have failed.");
+                        throw new RuntimeException("Unauthorized");
+                }
+                log.info("Received chat message from user: {}", sender.getUsername());
+                log.info("Receiver ID: {}, Content: {}", request.getReceiverId(), request.getContent());
 
-    public static record ChatMessagePayload(Long receiverId, String content) {
-    }
+                // Save message to DB
+                ChatMessageDTO savedMessage = messageService.saveMessage(sender.getId(), request.getReceiverId(),
+                                request.getContent());
 
-    @MessageMapping("/chat")
-    public void sendChatMessage(@Payload ChatMessagePayload payload, @AuthenticationPrincipal UserPrincipal sender) {
-        // 在实际应用中，这里应该包含以下逻辑：
-        // 1. 验证 sender 和 payload.receiverId() 是否有效。
-        // 2. 查找或创建一个 Conversation。
-        // 3. 创建一个新的 Message 实体并保存到数据库。
-        // 4. 更新 Conversation 的 last_message_id。
+                log.info("Message saved with ID: {}", savedMessage.getId());
 
-        // 为了演示，我们暂时只实现消息的实时转发
-        // 将消息发送到指定接收者的私有队列
-        simpMessagingTemplate.convertAndSendToUser(
-                String.valueOf(payload.receiverId()),
-                "/queue/messages",
-                payload.content());
-    }
+                // Find receiver's username to send via WebSocket
+                // Note: This assumes the receiver is connected with this username as Principal
+                User receiver = userRepository.findById(request.getReceiverId())
+                                .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+                log.info("Sending to receiver: {} (ID: {})", receiver.getUsername(), receiver.getId());
+                // Send to receiver via topic (more reliable than user queue)
+                simpMessagingTemplate.convertAndSend(
+                                "/topic/user/" + receiver.getId(),
+                                savedMessage);
+
+                log.info("Sending echo to sender: {} (ID: {})", sender.getUsername(), sender.getId());
+                // Send echo to sender via topic
+                simpMessagingTemplate.convertAndSend(
+                                "/topic/user/" + sender.getId(),
+                                savedMessage);
+        }
 }

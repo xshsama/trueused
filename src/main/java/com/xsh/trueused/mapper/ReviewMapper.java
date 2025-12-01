@@ -14,10 +14,17 @@ public interface ReviewMapper {
     @Mapping(source = "order.id", target = "orderId")
     @Mapping(source = "product.id", target = "productId")
     @Mapping(source = "product.title", target = "productTitle")
-    @Mapping(source = "product.image", target = "productImage") // Assuming product has image field or logic needed
+    @Mapping(target = "productImage", expression = "java(getProductImage(review))")
     @Mapping(source = "buyer.id", target = "buyerId")
     @Mapping(source = "buyer.username", target = "buyerName")
-    // @Mapping(source = "buyer.avatar", target = "buyerAvatar") // Assuming user
-    // has avatar
+    @Mapping(source = "buyer.avatarUrl", target = "buyerAvatar")
     ReviewDTO toDTO(Review review);
+
+    default String getProductImage(Review review) {
+        if (review.getProduct() != null && review.getProduct().getImages() != null
+                && !review.getProduct().getImages().isEmpty()) {
+            return review.getProduct().getImages().get(0).getUrl();
+        }
+        return null;
+    }
 }

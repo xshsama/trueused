@@ -23,6 +23,9 @@ public class RefundService {
     @Autowired
     private RefundRequestRepository refundRequestRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public RefundRequest requestRefund(Long orderId, RefundRequestCreateDTO dto, Long userId) {
         Order order = orderRepository.findById(orderId)
@@ -57,6 +60,14 @@ public class RefundService {
         order.setStatus(OrderStatus.REFUND_PENDING);
         orderRepository.save(order);
 
+        // 通知卖家有退款申请
+        notificationService.createNotification(
+                order.getSeller().getId(),
+                "退款申请",
+                "订单 [" + order.getId() + "] 买家申请了退款，请及时处理。",
+                "REFUND_REQUESTED",
+                order.getId());
+
         return refundRequest;
     }
 
@@ -81,6 +92,14 @@ public class RefundService {
 
         order.setStatus(OrderStatus.REFUND_APPROVED);
         orderRepository.save(order);
+
+        // 通知买家退款已同意
+        notificationService.createNotification(
+                order.getBuyer().getId(),
+                "退款申请已同意",
+                "订单 [" + order.getId() + "] 卖家已同意退款。",
+                "REFUND_APPROVED",
+                order.getId());
 
         // TODO: Trigger actual money refund logic here if needed immediately, or wait
         // for completion
@@ -113,17 +132,21 @@ public class RefundService {
         // 为了简化，假设拒绝后订单状态变回 "已发货" 或 "已付款" 比较复杂，
         // 我们可以引入一个 REFUND_REJECTED 状态，或者让用户重新申请。
         // 这里暂时不改变 OrderStatus，或者改回之前的状态需要额外字段记录。
-        // 让我们假设拒绝后，订单状态回到 SHIPPED (如果之前是 SHIPPED)
-        // 但为了安全，我们可能需要一个状态机。
-        // 简单处理：如果拒绝，订单状态变回 SHIPPED (假设大部分是在发货后退款)
-        // 或者，我们可以保持 REFUND_PENDING 但标记为拒绝？不，状态应该明确。
-        // 让我们把订单状态改回 SHIPPED 作为默认回退状态，或者根据是否有物流信息判断。
+        // 让我们假设拒绝后，订单状态回到 SHIPPED 作为默认回退状态，或者根据是否有物流信息判断。
         if (order.getTrackingNumber() != null) {
             order.setStatus(OrderStatus.SHIPPED);
         } else {
             order.setStatus(OrderStatus.PAID);
         }
         orderRepository.save(order);
+
+        // 通知买家退款被拒绝
+        notificationService.createNotification(
+                order.getBuyer().getId(),
+                "退款申请被拒绝",
+                "订单 [" + order.getId() + "] 卖家拒绝了您的退款申请。",
+                "REFUND_REJECTED",
+                order.getId());
 
         return refundRequest;
     }
@@ -145,6 +168,14 @@ public class RefundService {
         Order order = refundRequest.getOrder();
         order.setStatus(OrderStatus.REFUNDED);
         orderRepository.save(order);
+
+        // 通知买家退款已完成
+        notificationService.createNotification(
+                order.getBuyer().getId(),
+                "退款成功",
+                "订单 [" + order.getId() + "] 退款流程已完成，款项将原路返回。",
+                "REFUND_COMPLETED",
+                order.getId());
 
         return refundRequest;
     }

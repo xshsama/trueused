@@ -57,6 +57,9 @@ public class OrderService {
     @Autowired
     private ShippingService shippingService;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest createOrderRequest, Long buyerId) {
         // 1. 查找商品
@@ -104,6 +107,14 @@ public class OrderService {
         // 7. 更新商品状态为已售出
         product.setStatus(ProductStatus.SOLD);
         productRepository.save(product);
+
+        // 通知卖家有新订单
+        notificationService.createNotification(
+                product.getSeller().getId(),
+                "新订单提醒",
+                "您的商品 [" + product.getTitle() + "] 有新的订单，请等待买家付款。",
+                "ORDER_CREATED",
+                savedOrder.getId());
 
         // 8. 转换并返回 DTO
         return getOrderById(savedOrder.getId());
@@ -165,6 +176,15 @@ public class OrderService {
 
         order.setStatus(OrderStatus.PAID);
         orderRepository.save(order);
+
+        // 通知卖家买家已付款
+        notificationService.createNotification(
+                order.getSeller().getId(),
+                "订单已付款",
+                "订单 [" + order.getId() + "] 买家已付款，请尽快发货。",
+                "ORDER_PAID",
+                order.getId());
+
         return getOrderById(orderId);
     }
 
@@ -216,6 +236,14 @@ public class OrderService {
 
         orderRepository.save(order);
 
+        // 通知买家已发货
+        notificationService.createNotification(
+                order.getBuyer().getId(),
+                "订单已发货",
+                "您的订单 [" + order.getId() + "] 卖家已发货，快递单号：" + order.getTrackingNumber(),
+                "ORDER_SHIPPED",
+                order.getId());
+
         // 返回包含物流信息的订单DTO
         OrderDTO orderDTO = getOrderById(orderId);
         orderDTO.setShippingInfo(shippingInfo);
@@ -255,6 +283,14 @@ public class OrderService {
         order.setDeliveredAt(Instant.now());
         orderRepository.save(order);
 
+        // 通知卖家订单已完成
+        notificationService.createNotification(
+                order.getSeller().getId(),
+                "订单已完成",
+                "订单 [" + order.getId() + "] 买家已确认收货，交易完成。",
+                "ORDER_COMPLETED",
+                order.getId());
+
         // TODO: Archive the product after order completion
         Product product = order.getProduct();
         System.out
@@ -290,6 +326,18 @@ public class OrderService {
         Product product = order.getProduct();
         product.setStatus(ProductStatus.AVAILABLE);
         productRepository.save(product);
+
+        // 通知对方订单已取消
+        Long targetUserId = order.getBuyer().getId().equals(userId) ? order.getSeller().getId()
+                : order.getBuyer().getId();
+        String canceller = order.getBuyer().getId().equals(userId) ? "买家" : "卖家";
+
+        notificationService.createNotification(
+                targetUserId,
+                "订单已取消",
+                canceller + "取消了订单 [" + order.getId() + "]。",
+                "ORDER_CANCELLED",
+                order.getId());
 
         return getOrderById(orderId);
     }

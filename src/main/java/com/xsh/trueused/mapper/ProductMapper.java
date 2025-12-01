@@ -4,9 +4,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.xsh.trueused.dto.CategoryDTO;
 import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ProductImageDTO;
-import com.xsh.trueused.entity.Category;
+import com.xsh.trueused.dto.UserDTO;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.ProductImage;
 
@@ -20,7 +21,10 @@ public final class ProductMapper {
                         .sorted(Comparator.comparing(ProductImage::getSort))
                         .map(img -> new ProductImageDTO(img.getId(), img.getUrl(), img.getSort(), img.getIsCover()))
                         .collect(Collectors.toList());
-        Category cat = p.getCategory();
+
+        UserDTO seller = p.getSeller() != null ? UserMapper.toDTO(p.getSeller()) : null;
+        CategoryDTO category = p.getCategory() != null ? CategoryMapper.toDTO(p.getCategory()) : null;
+
         return new ProductDTO(
                 p.getId(),
                 p.getTitle(),
@@ -29,8 +33,8 @@ public final class ProductMapper {
                 p.getCurrency(),
                 p.getStatus(),
                 p.getCondition(),
-                p.getSeller() != null ? p.getSeller().getId() : null,
-                cat != null ? cat.getId() : null,
+                seller,
+                category,
                 p.getLocationText(),
                 p.getLat(),
                 p.getLng(),

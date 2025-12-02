@@ -3,11 +3,13 @@ package com.xsh.trueused.config;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -55,25 +57,48 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+                if (accessor == null) {
+                    accessor = StompHeaderAccessor.wrap(message);
+                }
+
+                // 🛑 调试点 1: 看看所有流经的消息是什么命令
+                log.info("【WS调试】拦截到消息，命令: {}", accessor.getCommand());
+                log.info("【WS调试】当前用户: {}", accessor.getUser());
+
                 if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+                    log.info("【WS调试】检测到 CONNECT 连接请求！准备提取 Token...");
+
+                    // 🛑 调试点 2: 打印所有头部信息，看看 Token 到底藏在哪
+                    log.info("【WS调试】Native Headers: {}", accessor.toNativeHeaderMap());
+
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
+                    log.info("【WS调试】提取到的 Authorization 头: {}", authHeader);
+
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
-                        if (jwtTokenProvider.validateToken(token)) {
+                        // 🛑 调试点 3: Token 是否有效？
+                        boolean isValid = jwtTokenProvider.validateToken(token);
+                        log.info("【WS调试】Token 校验结果: {}", isValid);
+
+                        if (isValid) {
                             String username = jwtTokenProvider.getUsernameFromToken(token);
+                            log.info("【WS调试】解析出的用户名: {}", username);
+
                             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                     userDetails, null, userDetails.getAuthorities());
+
                             accessor.setUser(authentication);
-                            log.info("WebSocket Authenticated user: {}", username);
+                            log.info("【WS调试】✅ 成功设置用户认证信息: {}", username);
                         } else {
-                            log.warn("WebSocket Invalid JWT token");
+                            log.error("【WS调试】❌ Token 无效！");
                         }
                     } else {
-                        log.warn("WebSocket No Authorization header found");
+                        log.warn("【WS调试】⚠️ Authorization 头为空或格式不对 (必须以 'Bearer ' 开头)");
                     }
                 }
-                return message;
+                return MessageBuilder.createMessage(message.getPayload(),
+                        new MessageHeaders(accessor.getMessageHeaders()));
             }
         });
     }

@@ -23,6 +23,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + username));
+        System.out.println("DEBUG: Loaded user: " + user.getUsername());
+        System.out.println("DEBUG: User ID: " + user.getId());
+        if (user.getId() == null) {
+            System.err.println("ERROR: User ID is NULL from database!");
+        }
+        System.out.println("DEBUG: Creating UserPrincipal: " + UserPrincipal.from(user).toString());
         return UserPrincipal.from(user);
+        // --- 添加调试日志 ---
+
     }
 }

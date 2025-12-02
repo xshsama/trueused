@@ -9,6 +9,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.xsh.trueused.entity.Role;
 import com.xsh.trueused.entity.User;
 
@@ -17,12 +18,22 @@ import com.xsh.trueused.entity.User;
  */
 public class UserPrincipal implements UserDetails {
 
-    private final Long id;
-    private final String username;
-    private final String email;
-    private final String password;
-    private final boolean enabled;
-    private final Set<GrantedAuthority> authorities;
+    @JsonProperty("id")
+    Long id;
+    @JsonProperty("username")
+    private String username;
+    @JsonProperty("email")
+    private String email;
+    @JsonProperty("password")
+    private String password;
+    @JsonProperty("enabled")
+    private boolean enabled;
+    @JsonProperty("authorities")
+    private Set<GrantedAuthority> authorities;
+
+    // 无参构造函数，用于序列化/反序列化
+    public UserPrincipal() {
+    }
 
     public UserPrincipal(Long id, String username, String email, String password, boolean enabled,
             Set<GrantedAuthority> authorities) {
@@ -55,8 +66,16 @@ public class UserPrincipal implements UserDetails {
         return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getEmail() {
         return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     @Override
@@ -64,7 +83,14 @@ public class UserPrincipal implements UserDetails {
         return authorities;
     }
 
+    public void setAuthorities(Set<GrantedAuthority> authorities) {
+        this.authorities = authorities;
+    }
+
     public java.util.Set<String> getRoleNames() {
+        if (this.authorities == null) {
+            return java.util.Collections.emptySet();
+        }
         return this.authorities.stream().map(GrantedAuthority::getAuthority)
                 .collect(java.util.stream.Collectors.toSet());
     }
@@ -74,9 +100,21 @@ public class UserPrincipal implements UserDetails {
         return password;
     }
 
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     @Override
     public String getUsername() {
         return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     @Override
@@ -112,5 +150,15 @@ public class UserPrincipal implements UserDetails {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    @Override
+    public String toString() {
+        return "UserPrincipal{" +
+                "id=" + id +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", enabled=" + enabled +
+                '}';
     }
 }

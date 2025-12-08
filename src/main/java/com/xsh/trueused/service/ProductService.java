@@ -68,7 +68,22 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Optional<ProductDTO> findOne(Long id) {
+        // Increment views count (simple implementation, better with Redis)
+        // We do this in a separate transaction or async to avoid locking, but for now
+        // simple update
+        // Since this method is readOnly=true, we can't save.
+        // So we should separate the increment logic.
+        // But to keep it simple for now, we can just return the DTO.
+        // The controller should call incrementViews.
         return productRepository.findById(id).map(ProductMapper::toDTO);
+    }
+
+    @Transactional
+    public void incrementViews(Long id) {
+        productRepository.findById(id).ifPresent(p -> {
+            p.setViewsCount(p.getViewsCount() == null ? 1 : p.getViewsCount() + 1);
+            productRepository.save(p);
+        });
     }
 
     @Transactional(readOnly = true)

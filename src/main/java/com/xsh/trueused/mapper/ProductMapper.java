@@ -30,6 +30,8 @@ public final class ProductMapper {
                 p.getTitle(),
                 p.getDescription(),
                 p.getPrice(),
+                p.getOriginalPrice(),
+                p.getHeatScore(),
                 p.getCurrency(),
                 p.getStatus(),
                 p.getCondition(),

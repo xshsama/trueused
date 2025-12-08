@@ -80,6 +80,33 @@ public class UsersController {
         return UserMapper.toDTO(saved);
     }
 
+    @GetMapping("/{id}/public-profile")
+    public com.xsh.trueused.dto.PublicUserDTO getUserProfile(
+            @org.springframework.web.bind.annotation.PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND));
+
+        long sellingCount = productRepository.count((root, query, cb) -> cb.and(
+                cb.equal(root.get("seller").get("id"), id),
+                cb.equal(root.get("status"), ProductStatus.AVAILABLE),
+                cb.equal(root.get("isDeleted"), false)));
+
+        long soldCount = orderRepository.count((root, query, cb) -> cb.and(
+                cb.equal(root.get("seller").get("id"), id),
+                cb.equal(root.get("status"), OrderStatus.COMPLETED)));
+
+        return new com.xsh.trueused.dto.PublicUserDTO(
+                user.getId(),
+                user.getUsername(),
+                user.getNickname(),
+                user.getAvatarUrl(),
+                user.getBio(),
+                user.getCreatedAt(),
+                (int) sellingCount,
+                (int) soldCount);
+    }
+
     @GetMapping("/me/stats")
     public SellerStatsDTO getMyStats(@AuthenticationPrincipal UserPrincipal principal) {
         if (principal == null) {

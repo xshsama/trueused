@@ -20,6 +20,7 @@ import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ProductUpdateRequest;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.security.user.UserPrincipal;
+import com.xsh.trueused.service.BrowsingHistoryService;
 import com.xsh.trueused.service.ProductService;
 
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class ProductController {
     private final ProductService productService;
+    private final BrowsingHistoryService browsingHistoryService;
 
     @GetMapping
     public Page<ProductDTO> list(
@@ -60,7 +62,15 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public ProductDTO detail(@PathVariable Long id) {
+    public ProductDTO detail(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        // Increment views asynchronously or synchronously
+        productService.incrementViews(id);
+
+        // Record browsing history if user is logged in
+        if (principal != null) {
+            browsingHistoryService.recordHistory(principal.getId(), id);
+        }
+
         return productService.findOne(id).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.NOT_FOUND));
     }

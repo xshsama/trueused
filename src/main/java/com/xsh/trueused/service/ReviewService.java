@@ -68,6 +68,12 @@ public class ReviewService {
     }
 
     @Transactional(readOnly = true)
+    public Page<ReviewDTO> getSellerReviews(Long sellerId, Pageable pageable) {
+        return reviewRepository.findBySellerId(sellerId, pageable)
+                .map(ReviewMapper.INSTANCE::toDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<ReviewDTO> getMyReviews(Long buyerId) {
         return reviewRepository.findByBuyerId(buyerId).stream()
                 .map(ReviewMapper.INSTANCE::toDTO)

@@ -50,6 +50,12 @@ public class Product extends BaseEntity {
         @Column(nullable = false, precision = 12, scale = 2)
         private BigDecimal price;
 
+        @Column(name = "original_price", precision = 12, scale = 2)
+        private BigDecimal originalPrice;
+
+        @Column(name = "heat_score")
+        private Double heatScore = 0.0;
+
         @Column(length = 3, nullable = false)
         private String currency = "CNY";
 

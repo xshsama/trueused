@@ -46,6 +46,12 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private OrderStatus status;
 
+    @Column(name = "payment_time")
+    private Instant paymentTime;
+
+    @Column(name = "transaction_id")
+    private String transactionId;
+
     // 物流信息字段
     @Column(name = "tracking_number", length = 50)
     private String trackingNumber;

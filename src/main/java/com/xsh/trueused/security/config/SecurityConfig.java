@@ -58,6 +58,7 @@ public class SecurityConfig {
                                 "/api/auth/logout", "/error", "/api/ws/**")
                         .permitAll()
                         .requestMatchers("/api/products/**", "/api/categories/**").permitAll()
+                        .requestMatchers("/api/alipay/notify").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/orders/**", "/api/favorites/**", "/api/users/**",
                                 "/api/conversations/**", "/api/cloudinary/**")

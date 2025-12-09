@@ -189,6 +189,40 @@ public class OrderService {
     }
 
     @Transactional
+    public void handlePaymentSuccess(Long orderId, String transactionId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        // 幂等性检查：如果订单已经是支付状态，直接返回
+        if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.SHIPPED
+                || order.getStatus() == OrderStatus.COMPLETED) {
+            log.info("Order {} is already paid, skipping update.", orderId);
+            return;
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            log.warn("Order {} status is {}, cannot be paid.", orderId, order.getStatus());
+            // 这里可能需要根据业务决定是否抛出异常，或者记录异常日志
+            return;
+        }
+
+        order.setStatus(OrderStatus.PAID);
+        order.setPaymentTime(Instant.now());
+        order.setTransactionId(transactionId);
+        orderRepository.save(order);
+
+        log.info("Order {} payment success. Transaction ID: {}", orderId, transactionId);
+
+        // 通知卖家买家已付款
+        notificationService.createNotification(
+                order.getSeller().getId(),
+                "订单已付款",
+                "订单 [" + order.getId() + "] 买家已付款，请尽快发货。",
+                "ORDER_PAID",
+                order.getId());
+    }
+
+    @Transactional
     public OrderDTO shipOrder(Long orderId, Long sellerId, ShipOrderRequest shipRequest) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));

@@ -16,6 +16,7 @@ public class OrderDTO {
     private AddressDTO address;
     private BigDecimal price;
     private OrderStatus status;
+    private Instant paymentTime;
     private Instant createdAt;
     private Instant updatedAt;
 

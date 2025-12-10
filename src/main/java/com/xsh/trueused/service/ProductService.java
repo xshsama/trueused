@@ -42,7 +42,7 @@ public class ProductService {
         Product p = new Product();
         p.setSeller(seller);
         applyCreate(req, p);
-        p.setStatus(ProductStatus.AVAILABLE); // 直接发布（后续可调整发布策略）
+        p.setStatus(ProductStatus.CREATED); // 初始状态为待入仓
         Product saved = productRepository.save(p);
         return ProductMapper.toDTO(saved);
     }
@@ -92,14 +92,27 @@ public class ProductService {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         Specification<Product> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
-            predicates.add(cb.equal(root.get("status"), ProductStatus.AVAILABLE));
+            predicates.add(cb.equal(root.get("status"), ProductStatus.ON_SALE));
             predicates.add(cb.equal(root.get("isDeleted"), Boolean.FALSE));
             if (q != null && !q.isBlank()) {
                 String pattern = "%" + q.trim() + "%";
                 predicates.add(cb.like(root.get("title"), pattern));
             }
             if (categoryId != null) {
-                predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+                // Fetch category and its children to filter by all related IDs
+                Category cat = categoryRepository.findById(categoryId).orElse(null);
+                if (cat != null) {
+                    java.util.List<Long> ids = new java.util.ArrayList<>();
+                    ids.add(categoryId);
+                    // Add children IDs
+                    if (cat.getChildren() != null) {
+                        cat.getChildren().forEach(c -> ids.add(c.getId()));
+                    }
+                    predicates.add(root.get("category").get("id").in(ids));
+                } else {
+                    // Category not found, return empty result
+                    predicates.add(cb.disjunction());
+                }
             }
             if (priceMin != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("price"), priceMin));
@@ -203,7 +216,7 @@ public class ProductService {
         if (!Objects.equals(p.getSeller().getId(), sellerId)) {
             throw new SecurityException("无权操作");
         }
-        p.setStatus(ProductStatus.AVAILABLE);
+        p.setStatus(ProductStatus.ON_SALE);
         return ProductMapper.toDTO(p);
     }
 
@@ -213,7 +226,7 @@ public class ProductService {
         if (!Objects.equals(p.getSeller().getId(), sellerId)) {
             throw new SecurityException("无权操作");
         }
-        p.setStatus(ProductStatus.HIDDEN);
+        p.setStatus(ProductStatus.CANCELLED);
         return ProductMapper.toDTO(p);
     }
 

@@ -37,7 +37,7 @@ public class RefundService {
 
         // 允许退款的状态：已付款、已发货、已送达（但在确认收货前？或者确认收货后一定时间内？）
         // 这里假设只要没完成或取消，且已付款就可以退款
-        if (order.getStatus() == OrderStatus.PENDING || order.getStatus() == OrderStatus.CANCELLED
+        if (order.getStatus() == OrderStatus.PENDING_PAYMENT || order.getStatus() == OrderStatus.CANCELLED
                 || order.getStatus() == OrderStatus.REFUNDED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status not eligible for refund");
         }
@@ -57,7 +57,7 @@ public class RefundService {
         refundRequestRepository.save(refundRequest);
 
         // 更新订单状态
-        order.setStatus(OrderStatus.REFUND_PENDING);
+        order.setStatus(OrderStatus.REFUNDING);
         orderRepository.save(order);
 
         // 通知卖家有退款申请
@@ -90,8 +90,9 @@ public class RefundService {
         refundRequest.setStatus(RefundStatus.APPROVED);
         refundRequestRepository.save(refundRequest);
 
-        order.setStatus(OrderStatus.REFUND_APPROVED);
-        orderRepository.save(order);
+        // order.setStatus(OrderStatus.REFUND_APPROVED); // Removed to align with new
+        // state machine
+        // orderRepository.save(order);
 
         // 通知买家退款已同意
         notificationService.createNotification(

@@ -31,7 +31,7 @@ public class HeatCalculationService {
     @Transactional
     public void updateAllProductHeats() {
         log.info("Starting scheduled heat score update...");
-        List<Product> products = productRepository.findByStatus(ProductStatus.AVAILABLE);
+        List<Product> products = productRepository.findByStatus(ProductStatus.ON_SALE);
 
         for (Product product : products) {
             calculateAndSaveHeat(product);

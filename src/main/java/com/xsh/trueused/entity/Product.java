@@ -61,7 +61,7 @@ public class Product extends BaseEntity {
 
         @Enumerated(EnumType.STRING)
         @Column(nullable = false, length = 20)
-        private ProductStatus status = ProductStatus.DRAFT;
+        private ProductStatus status = ProductStatus.CREATED;
 
         @Enumerated(EnumType.STRING)
         @Column(name = "item_condition", length = 20)

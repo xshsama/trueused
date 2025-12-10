@@ -1,10 +1,12 @@
 CREATE TABLE inspections (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    order_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    order_id BIGINT,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     result_summary TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 

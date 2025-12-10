@@ -28,107 +28,107 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class UsersController {
 
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
-    private final OrderRepository orderRepository;
+        private final UserRepository userRepository;
+        private final ProductRepository productRepository;
+        private final OrderRepository orderRepository;
 
-    public static record UpdateMeRequest(
-            @Size(max = 50) String nickname,
-            @Size(max = 255) String avatarUrl,
-            @Size(max = 300) String bio,
-            @Size(max = 20) String phone) {
-    }
-
-    @GetMapping("/me")
-    public UserDTO me(@AuthenticationPrincipal UserPrincipal principal) {
-        if (principal == null) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
-        User user = userRepository.findById(principal.getId())
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.NOT_FOUND));
-        return UserMapper.toDTO(user);
-    }
-
-    @PutMapping("/me")
-    public UserDTO updateMe(@AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody @Validated UpdateMeRequest req) {
-        if (principal == null) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
-        User user = userRepository.findById(principal.getId())
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.NOT_FOUND));
-
-        if (req.nickname() != null) {
-            user.setNickname(req.nickname());
-        }
-        // 仅在非空白字符串时更新 avatarUrl，避免被空字符串覆盖
-        if (req.avatarUrl() != null && !req.avatarUrl().isBlank()) {
-            user.setAvatarUrl(req.avatarUrl());
-        }
-        if (req.bio() != null) {
-            user.setBio(req.bio());
-        }
-        if (req.phone() != null) {
-            user.setPhone(req.phone());
+        public static record UpdateMeRequest(
+                        @Size(max = 50) String nickname,
+                        @Size(max = 255) String avatarUrl,
+                        @Size(max = 300) String bio,
+                        @Size(max = 20) String phone) {
         }
 
-        User saved = userRepository.save(user);
-        return UserMapper.toDTO(saved);
-    }
-
-    @GetMapping("/{id}/public-profile")
-    public com.xsh.trueused.dto.PublicUserDTO getUserProfile(
-            @org.springframework.web.bind.annotation.PathVariable Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.NOT_FOUND));
-
-        long sellingCount = productRepository.count((root, query, cb) -> cb.and(
-                cb.equal(root.get("seller").get("id"), id),
-                cb.equal(root.get("status"), ProductStatus.AVAILABLE),
-                cb.equal(root.get("isDeleted"), false)));
-
-        long soldCount = orderRepository.count((root, query, cb) -> cb.and(
-                cb.equal(root.get("seller").get("id"), id),
-                cb.equal(root.get("status"), OrderStatus.COMPLETED)));
-
-        return new com.xsh.trueused.dto.PublicUserDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getNickname(),
-                user.getAvatarUrl(),
-                user.getBio(),
-                user.getCreatedAt(),
-                (int) sellingCount,
-                (int) soldCount);
-    }
-
-    @GetMapping("/me/stats")
-    public SellerStatsDTO getMyStats(@AuthenticationPrincipal UserPrincipal principal) {
-        if (principal == null) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        @GetMapping("/me")
+        public UserDTO me(@AuthenticationPrincipal UserPrincipal principal) {
+                if (principal == null) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                                        org.springframework.http.HttpStatus.UNAUTHORIZED);
+                }
+                User user = userRepository.findById(principal.getId())
+                                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                                                org.springframework.http.HttpStatus.NOT_FOUND));
+                return UserMapper.toDTO(user);
         }
-        long sellerId = principal.getId();
 
-        long onShelfProducts = productRepository.count((root, query, cb) -> cb.and(
-                cb.equal(root.get("seller").get("id"), sellerId),
-                cb.equal(root.get("status"), ProductStatus.AVAILABLE),
-                cb.equal(root.get("isDeleted"), false)));
+        @PutMapping("/me")
+        public UserDTO updateMe(@AuthenticationPrincipal UserPrincipal principal,
+                        @RequestBody @Validated UpdateMeRequest req) {
+                if (principal == null) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                                        org.springframework.http.HttpStatus.UNAUTHORIZED);
+                }
+                User user = userRepository.findById(principal.getId())
+                                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                                                org.springframework.http.HttpStatus.NOT_FOUND));
 
-        long pendingOrders = orderRepository.count((root, query, cb) -> cb.and(
-                cb.equal(root.get("seller").get("id"), sellerId),
-                cb.equal(root.get("status"), OrderStatus.PAID))); // 待发货视为待处理
+                if (req.nickname() != null) {
+                        user.setNickname(req.nickname());
+                }
+                // 仅在非空白字符串时更新 avatarUrl，避免被空字符串覆盖
+                if (req.avatarUrl() != null && !req.avatarUrl().isBlank()) {
+                        user.setAvatarUrl(req.avatarUrl());
+                }
+                if (req.bio() != null) {
+                        user.setBio(req.bio());
+                }
+                if (req.phone() != null) {
+                        user.setPhone(req.phone());
+                }
 
-        long violationProducts = productRepository.count((root, query, cb) -> cb.and(
-                cb.equal(root.get("seller").get("id"), sellerId),
-                cb.equal(root.get("status"), ProductStatus.HIDDEN),
-                cb.equal(root.get("isDeleted"), false))); // 暂时用下架代替违规
+                User saved = userRepository.save(user);
+                return UserMapper.toDTO(saved);
+        }
 
-        return new SellerStatsDTO(onShelfProducts, pendingOrders, violationProducts);
-    }
+        @GetMapping("/{id}/public-profile")
+        public com.xsh.trueused.dto.PublicUserDTO getUserProfile(
+                        @org.springframework.web.bind.annotation.PathVariable Long id) {
+                User user = userRepository.findById(id)
+                                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                                                org.springframework.http.HttpStatus.NOT_FOUND));
+
+                long sellingCount = productRepository.count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("seller").get("id"), id),
+                                cb.equal(root.get("status"), ProductStatus.ON_SALE),
+                                cb.equal(root.get("isDeleted"), false)));
+
+                long soldCount = orderRepository.count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("seller").get("id"), id),
+                                cb.equal(root.get("status"), OrderStatus.COMPLETED)));
+
+                return new com.xsh.trueused.dto.PublicUserDTO(
+                                user.getId(),
+                                user.getUsername(),
+                                user.getNickname(),
+                                user.getAvatarUrl(),
+                                user.getBio(),
+                                user.getCreatedAt(),
+                                (int) sellingCount,
+                                (int) soldCount);
+        }
+
+        @GetMapping("/me/stats")
+        public SellerStatsDTO getMyStats(@AuthenticationPrincipal UserPrincipal principal) {
+                if (principal == null) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                                        org.springframework.http.HttpStatus.UNAUTHORIZED);
+                }
+                long sellerId = principal.getId();
+
+                long onShelfProducts = productRepository.count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("seller").get("id"), sellerId),
+                                cb.equal(root.get("status"), ProductStatus.ON_SALE),
+                                cb.equal(root.get("isDeleted"), false)));
+
+                long pendingOrders = orderRepository.count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("seller").get("id"), sellerId),
+                                cb.equal(root.get("status"), OrderStatus.PAID))); // 待发货视为待处理
+
+                long violationProducts = productRepository.count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("seller").get("id"), sellerId),
+                                cb.equal(root.get("status"), ProductStatus.REJECTED),
+                                cb.equal(root.get("isDeleted"), false))); // 暂时用下架代替违规
+
+                return new SellerStatsDTO(onShelfProducts, pendingOrders, violationProducts);
+        }
 }

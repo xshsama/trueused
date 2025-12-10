@@ -67,7 +67,7 @@ public class OrderService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
 
         // 2. 检查商品状态是否可购买
-        if (product.getStatus() != ProductStatus.AVAILABLE) {
+        if (product.getStatus() != ProductStatus.ON_SALE) {
             log.warn("CreateOrder conflict: productId={}, status={}, buyerId={}, sellerId={}",
                     product.getId(), product.getStatus(), buyerId,
                     product.getSeller() != null ? product.getSeller().getId() : null);
@@ -100,12 +100,12 @@ public class OrderService {
         order.setProduct(product);
         order.setAddress(address);
         order.setPrice(product.getPrice());
-        order.setStatus(OrderStatus.PENDING); // 初始状态为待处理
+        order.setStatus(OrderStatus.PENDING_PAYMENT); // 初始状态为待付款
 
         Order savedOrder = orderRepository.save(order);
 
-        // 7. 更新商品状态为已售出
-        product.setStatus(ProductStatus.SOLD);
+        // 7. 更新商品状态为已锁定
+        product.setStatus(ProductStatus.LOCKED);
         productRepository.save(product);
 
         // 通知卖家有新订单
@@ -170,12 +170,17 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to pay for this order");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING) {
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be paid");
         }
 
         order.setStatus(OrderStatus.PAID);
         orderRepository.save(order);
+
+        // 更新商品状态为已售出
+        Product product = order.getProduct();
+        product.setStatus(ProductStatus.SOLD_OUT);
+        productRepository.save(product);
 
         // 通知卖家买家已付款
         notificationService.createNotification(
@@ -200,7 +205,7 @@ public class OrderService {
             return;
         }
 
-        if (order.getStatus() != OrderStatus.PENDING) {
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             log.warn("Order {} status is {}, cannot be paid.", orderId, order.getStatus());
             // 这里可能需要根据业务决定是否抛出异常，或者记录异常日志
             return;
@@ -210,6 +215,11 @@ public class OrderService {
         order.setPaymentTime(Instant.now());
         order.setTransactionId(transactionId);
         orderRepository.save(order);
+
+        // 更新商品状态为已售出
+        Product product = order.getProduct();
+        product.setStatus(ProductStatus.SOLD_OUT);
+        productRepository.save(product);
 
         log.info("Order {} payment success. Transaction ID: {}", orderId, transactionId);
 
@@ -343,7 +353,7 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to cancel this order");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.PAID) {
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT && order.getStatus() != OrderStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be cancelled at its current stage");
         }
 
@@ -358,7 +368,7 @@ public class OrderService {
 
         // 将商品状态恢复为可购买
         Product product = order.getProduct();
-        product.setStatus(ProductStatus.AVAILABLE);
+        product.setStatus(ProductStatus.ON_SALE);
         productRepository.save(product);
 
         // 通知对方订单已取消
@@ -393,7 +403,7 @@ public class OrderService {
         orderRepository.save(order);
 
         Product product = order.getProduct();
-        product.setStatus(ProductStatus.AVAILABLE);
+        product.setStatus(ProductStatus.ON_SALE);
         productRepository.save(product);
 
         return getOrderById(orderId);
@@ -403,7 +413,8 @@ public class OrderService {
     @Transactional
     public void cancelExpiredOrders() {
         Instant expirationTime = Instant.now().minus(15, ChronoUnit.MINUTES);
-        List<Order> expiredOrders = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.PENDING, expirationTime);
+        List<Order> expiredOrders = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.PENDING_PAYMENT,
+                expirationTime);
 
         for (Order order : expiredOrders) {
             log.info("Cancelling expired order: {}", order.getId());
@@ -411,7 +422,7 @@ public class OrderService {
 
             // 恢复商品库存/状态
             Product product = order.getProduct();
-            product.setStatus(ProductStatus.AVAILABLE);
+            product.setStatus(ProductStatus.ON_SALE);
             productRepository.save(product);
 
             orderRepository.save(order);

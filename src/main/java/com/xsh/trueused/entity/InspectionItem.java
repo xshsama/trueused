@@ -22,4 +22,7 @@ public class InspectionItem extends BaseEntity {
 
     @Column(name = "sequence_order", nullable = false)
     private Integer sequenceOrder;
+
+    @Column(name = "template_type", length = 50)
+    private String templateType;
 }

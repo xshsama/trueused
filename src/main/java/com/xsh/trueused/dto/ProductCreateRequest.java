@@ -11,14 +11,17 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record ProductCreateRequest(
-        @NotBlank @Size(max = 120) String title,
-        @NotBlank String description,
-        @NotNull @DecimalMin("0.0") BigDecimal price,
-        @Size(max = 3) String currency,
-        ProductCondition condition,
-        Long categoryId,
-        @Size(max = 100) String locationText,
-        Double lat,
-        Double lng,
-        @Size(max = 9) List<@Size(max = 255) String> imageUrls) {
+                @NotBlank @Size(max = 120) String title,
+                @NotBlank String description,
+                @NotNull @DecimalMin("0.0") BigDecimal price,
+                @DecimalMin("0.0") BigDecimal originalPrice,
+                @Size(max = 3) String currency,
+                ProductCondition condition,
+                Long categoryId,
+                @Size(max = 100) String locationText,
+                @Size(max = 20) String shippingPayer,
+                @Size(max = 50) String tradeTypes,
+                Double lat,
+                Double lng,
+                @Size(max = 9) List<@Size(max = 255) String> imageUrls) {
 }

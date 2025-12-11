@@ -55,13 +55,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 预检请求放行
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh",
-                                "/api/auth/logout", "/error", "/api/ws/**")
+                                "/api/auth/logout", "/error", "/api/ws/**", "/api/coupons/*")
                         .permitAll()
                         .requestMatchers("/api/products/**", "/api/categories/**").permitAll()
                         .requestMatchers("/api/alipay/notify").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/orders/**", "/api/favorites/**", "/api/users/**",
-                                "/api/conversations/**", "/api/cloudinary/**")
+                                "/api/conversations/**", "/api/cloudinary/**", "/api/consignments/**")
                         .authenticated()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex

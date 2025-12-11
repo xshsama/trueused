@@ -16,6 +16,7 @@ import com.xsh.trueused.dto.ProductCreateRequest;
 import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ProductUpdateRequest;
 import com.xsh.trueused.entity.Category;
+import com.xsh.trueused.entity.Consignment;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.ProductImage;
 import com.xsh.trueused.entity.User;
@@ -147,6 +148,8 @@ public class ProductService {
         p.setTitle(req.title());
         p.setDescription(req.description());
         p.setPrice(req.price());
+        if (req.originalPrice() != null)
+            p.setOriginalPrice(req.originalPrice());
         if (req.currency() != null)
             p.setCurrency(req.currency());
         p.setCondition(req.condition());
@@ -156,6 +159,8 @@ public class ProductService {
             p.setCategory(c);
         }
         p.setLocationText(req.locationText());
+        p.setShippingPayer(req.shippingPayer());
+        p.setTradeTypes(req.tradeTypes());
         p.setLat(req.lat());
         p.setLng(req.lng());
         p.getImages().clear();
@@ -179,6 +184,8 @@ public class ProductService {
             p.setDescription(req.description());
         if (req.price() != null)
             p.setPrice(req.price());
+        if (req.originalPrice() != null)
+            p.setOriginalPrice(req.originalPrice());
         if (req.currency() != null)
             p.setCurrency(req.currency());
         if (req.status() != null)
@@ -192,6 +199,10 @@ public class ProductService {
         }
         if (req.locationText() != null)
             p.setLocationText(req.locationText());
+        if (req.shippingPayer() != null)
+            p.setShippingPayer(req.shippingPayer());
+        if (req.tradeTypes() != null)
+            p.setTradeTypes(req.tradeTypes());
         if (req.lat() != null)
             p.setLat(req.lat());
         if (req.lng() != null)
@@ -248,5 +259,17 @@ public class ProductService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO);
+    }
+
+    @Transactional
+    public Product createFromConsignment(Consignment c) {
+        Product p = new Product();
+        p.setSeller(c.getSeller());
+        p.setTitle(c.getTitle());
+        p.setDescription(c.getDescription());
+        p.setPrice(c.getExpectedPrice());
+        p.setStatus(ProductStatus.ON_SALE);
+        p.setCurrency("CNY");
+        return productRepository.save(p);
     }
 }

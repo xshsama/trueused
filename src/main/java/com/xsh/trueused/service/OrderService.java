@@ -26,12 +26,14 @@ import com.xsh.trueused.entity.Address;
 import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.User;
+import com.xsh.trueused.entity.UserCoupon;
 import com.xsh.trueused.enums.OrderStatus;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.mapper.OrderMapper;
 import com.xsh.trueused.repository.AddressRepository;
 import com.xsh.trueused.repository.OrderRepository;
 import com.xsh.trueused.repository.ProductRepository;
+import com.xsh.trueused.repository.UserCouponRepository;
 import com.xsh.trueused.repository.UserRepository;
 
 import jakarta.persistence.criteria.Join;
@@ -53,6 +55,9 @@ public class OrderService {
 
     @Autowired
     private AddressRepository addressRepository;
+
+    @Autowired
+    private UserCouponRepository userCouponRepository;
 
     @Autowired
     private ShippingService shippingService;
@@ -85,13 +90,31 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Address does not belong to the current user");
         }
 
-        // 5. 不能购买自己的商品
-        // if (product.getSeller().getId().equals(buyerId)) {
-        // log.warn("CreateOrder bad request: buyer {} attempts to buy own product {}",
-        // buyerId, product.getId());
-        // throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot buy
-        // your own product");
-        // }
+        // 5. Handle Coupon
+        java.math.BigDecimal discountAmount = java.math.BigDecimal.ZERO;
+        if (createOrderRequest.getUserCouponId() != null) {
+            UserCoupon userCoupon = userCouponRepository.findById(createOrderRequest.getUserCouponId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Coupon not found"));
+
+            if (!userCoupon.getUser().getId().equals(buyerId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Coupon does not belong to you");
+            }
+            if (userCoupon.getIsUsed()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Coupon already used");
+            }
+            if (userCoupon.getValidUntil() != null && userCoupon.getValidUntil().isBefore(Instant.now())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Coupon expired");
+            }
+            if (product.getPrice().compareTo(userCoupon.getCoupon().getMinSpend()) < 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Order amount does not meet coupon minimum spend");
+            }
+
+            discountAmount = userCoupon.getCoupon().getDiscountAmount();
+            userCoupon.setIsUsed(true);
+            userCoupon.setUsedAt(Instant.now());
+            userCouponRepository.save(userCoupon);
+        }
 
         // 6. 创建并保存订单
         Order order = new Order();
@@ -99,7 +122,14 @@ public class OrderService {
         order.setSeller(product.getSeller());
         order.setProduct(product);
         order.setAddress(address);
-        order.setPrice(product.getPrice());
+
+        java.math.BigDecimal finalPrice = product.getPrice().subtract(discountAmount);
+        if (finalPrice.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            finalPrice = java.math.BigDecimal.ZERO;
+        }
+        order.setPrice(finalPrice);
+        order.setDiscountAmount(discountAmount);
+
         order.setStatus(OrderStatus.PENDING_PAYMENT); // 初始状态为待付款
 
         Order savedOrder = orderRepository.save(order);
@@ -306,7 +336,25 @@ public class OrderService {
             return null;
         }
 
-        return shippingService.getShippingInfo(order.getTrackingNumber());
+        ShippingInfoDTO shippingInfo = shippingService.getShippingInfo(order.getTrackingNumber());
+
+        // 如果缓存中没有物流信息（可能是服务重启导致），尝试重建
+        if (shippingInfo == null && order.getShippedAt() != null) {
+            // 由于Order实体未持久化发货地信息，这里使用默认值
+            // 在实际生产环境中，应该将senderCity等信息保存到Order表中
+            String senderCity = "发货地";
+            String senderDistrict = "";
+
+            shippingInfo = shippingService.reconstructShippingInfo(
+                    order.getTrackingNumber(),
+                    order.getExpressCompany(),
+                    order.getShippedAt(),
+                    senderCity,
+                    senderDistrict,
+                    order.getAddress());
+        }
+
+        return shippingInfo;
     }
 
     @Transactional

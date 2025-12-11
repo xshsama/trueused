@@ -10,4 +10,6 @@ import com.xsh.trueused.entity.InspectionItem;
 @Repository
 public interface InspectionItemRepository extends JpaRepository<InspectionItem, Long> {
     List<InspectionItem> findAllByOrderBySequenceOrderAsc();
+
+    List<InspectionItem> findByTemplateTypeOrderBySequenceOrderAsc(String templateType);
 }

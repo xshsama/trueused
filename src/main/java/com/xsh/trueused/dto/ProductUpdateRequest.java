@@ -10,15 +10,18 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
 
 public record ProductUpdateRequest(
-        @Size(max = 120) String title,
-        String description,
-        @DecimalMin("0.0") BigDecimal price,
-        @Size(max = 3) String currency,
-        ProductStatus status,
-        ProductCondition condition,
-        Long categoryId,
-        @Size(max = 100) String locationText,
-        Double lat,
-        Double lng,
-        List<@Size(max = 255) String> imageUrls) {
+                @Size(max = 120) String title,
+                String description,
+                @DecimalMin("0.0") BigDecimal price,
+                @DecimalMin("0.0") BigDecimal originalPrice,
+                @Size(max = 3) String currency,
+                ProductStatus status,
+                ProductCondition condition,
+                Long categoryId,
+                @Size(max = 100) String locationText,
+                @Size(max = 20) String shippingPayer,
+                @Size(max = 50) String tradeTypes,
+                Double lat,
+                Double lng,
+                List<@Size(max = 255) String> imageUrls) {
 }

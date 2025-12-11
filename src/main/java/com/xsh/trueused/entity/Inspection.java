@@ -17,11 +17,15 @@ import lombok.EqualsAndHashCode;
 public class Inspection extends BaseEntity {
 
     @OneToOne
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_id")
     private Order order;
 
+    @OneToOne
+    @JoinColumn(name = "consignment_id")
+    private Consignment consignment;
+
     @Column(nullable = false)
-    private String status; // PENDING, IN_PROGRESS, COMPLETED, FAILED
+    private String status; // PENDING, IN_PROGRESS, COMPLETED, FAILEDfa
 
     @Column(name = "result_summary")
     private String resultSummary;

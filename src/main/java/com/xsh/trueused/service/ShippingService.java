@@ -131,6 +131,67 @@ public class ShippingService {
     }
 
     /**
+     * 重建物流信息（用于系统重启后恢复数据）
+     */
+    public ShippingInfoDTO reconstructShippingInfo(String trackingNumber, String expressCompany, Instant shippedAt,
+            String senderCity, String senderDistrict, Address receiverAddress) {
+
+        if (trackingNumber == null || shippedAt == null) {
+            return null;
+        }
+
+        // 如果缓存中已存在，直接返回
+        if (shippingCache.containsKey(trackingNumber)) {
+            return getShippingInfo(trackingNumber);
+        }
+
+        String expressCode = EXPRESS_COMPANIES.getOrDefault(expressCompany, "OTHER");
+
+        // 获取收件城市信息
+        String receiverCity = receiverAddress != null ? receiverAddress.getCity() : "收货地";
+        String receiverDistrict = receiverAddress != null ? receiverAddress.getDistrict() : "";
+
+        // 重建路线信息
+        ShippingRoute route = new ShippingRoute(senderCity, senderDistrict, receiverCity, receiverDistrict);
+        routeCache.put(trackingNumber, route);
+
+        // 发件地点显示
+        String senderLocation = (senderCity != null ? senderCity : "发货地") +
+                (senderDistrict != null ? senderDistrict : "");
+
+        // 重建初始物流轨迹
+        List<TrackingEvent> events = new ArrayList<>();
+        events.add(TrackingEvent.builder()
+                .time(shippedAt)
+                .description("卖家已发货，快递员正在揽收中")
+                .location(senderLocation)
+                .status("PENDING")
+                .build());
+
+        // 预计送达时间（基于发货时间推算）
+        // 为了保持一致性，这里简单假设为发货后3天
+        Instant estimatedDelivery = shippedAt.plus(3, ChronoUnit.DAYS);
+
+        ShippingInfoDTO shippingInfo = ShippingInfoDTO.builder()
+                .trackingNumber(trackingNumber)
+                .expressCompany(expressCompany)
+                .expressCode(expressCode)
+                .shippingStatus("PENDING")
+                .shippedAt(shippedAt)
+                .estimatedDeliveryTime(estimatedDelivery)
+                .trackingEvents(events)
+                .senderCity(senderCity)
+                .receiverCity(receiverCity)
+                .build();
+
+        // 放入缓存
+        shippingCache.put(trackingNumber, shippingInfo);
+
+        // 立即执行一次模拟进度更新
+        return simulateShippingProgress(shippingInfo, route);
+    }
+
+    /**
      * 获取物流追踪信息
      * 
      * @param trackingNumber 快递单号

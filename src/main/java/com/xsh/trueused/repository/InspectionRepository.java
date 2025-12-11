@@ -10,4 +10,6 @@ import com.xsh.trueused.entity.Inspection;
 @Repository
 public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     Optional<Inspection> findByOrderId(Long orderId);
+
+    Optional<Inspection> findByConsignmentId(Long consignmentId);
 }

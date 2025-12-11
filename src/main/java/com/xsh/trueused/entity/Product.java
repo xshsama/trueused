@@ -74,6 +74,12 @@ public class Product extends BaseEntity {
         @Column(name = "location_text", length = 100)
         private String locationText;
 
+        @Column(name = "shipping_payer", length = 20)
+        private String shippingPayer; // SELLER, BUYER
+
+        @Column(name = "trade_types", length = 50)
+        private String tradeTypes; // EXPRESS, MEETUP (comma separated)
+
         @Column
         private Double lat;
 

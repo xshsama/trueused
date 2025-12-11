@@ -11,6 +11,10 @@ public class InspectionFlowDTO {
     private Long orderId;
     private String status;
     private String resultSummary;
+    private String productTitle;
+    private String productImage;
+    private String categoryName;
+    private String grade;
     private Instant createdAt;
     private Instant updatedAt;
     private List<InspectionItemResultDTO> items;

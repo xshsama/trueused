@@ -42,6 +42,9 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal price;
 
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;

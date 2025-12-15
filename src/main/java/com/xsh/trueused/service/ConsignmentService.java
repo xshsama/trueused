@@ -132,6 +132,7 @@ public class ConsignmentService {
                     c.getSeller().getNickname(),
                     c.getSeller().getAvatarUrl(),
                     c.getSeller().getBio(),
+                    c.getSeller().getCoverImage(),
                     c.getSeller().getCreatedAt(),
                     0, // sellingCount placeholder
                     0 // soldCount placeholder

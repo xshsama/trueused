@@ -78,6 +78,22 @@ public class User extends BaseEntity {
         @Column(name = "ban_until")
         private java.time.Instant banUntil;
 
+    @Column(name = "cover_image")
+    private String coverImage;
+
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "auto_reply_enabled")
+    private Boolean autoReplyEnabled = Boolean.FALSE;
+
+    @Column(name = "auto_reply_text", length = 500)
+    private String autoReplyText;
+
+    @Column(name = "vacation_mode")
+    private Boolean vacationMode = Boolean.FALSE;
+
+
         @ManyToMany(fetch = FetchType.LAZY)
         @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"), uniqueConstraints = @UniqueConstraint(name = "uk_user_role", columnNames = {
                         "user_id", "role_id" }), indexes = {

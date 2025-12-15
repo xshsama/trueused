@@ -19,5 +19,10 @@ public record UserDTO(
                 Boolean phoneVerified,
                 Instant lastLoginAt,
                 String banReason,
-                Instant banUntil) {
+                Instant banUntil,
+                String coverImage,
+                String location,
+                Boolean autoReplyEnabled,
+                String autoReplyText,
+                Boolean vacationMode) {
 }

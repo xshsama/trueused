@@ -66,6 +66,7 @@ public class CommentService {
                 comment.getUser().getNickname(),
                 comment.getUser().getAvatarUrl(),
                 comment.getUser().getBio(),
+                comment.getUser().getCoverImage(),
                 comment.getUser().getCreatedAt(),
                 0, 0 // Stats not needed here
         );

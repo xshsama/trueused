@@ -36,7 +36,14 @@ public class UsersController {
                         @Size(max = 50) String nickname,
                         @Size(max = 255) String avatarUrl,
                         @Size(max = 300) String bio,
-                        @Size(max = 20) String phone) {
+                        @Size(max = 20) String phone,
+                        // 新增
+                        @Size(max = 255) String coverImage,
+                        @Size(max = 100) String location,
+                        Boolean autoReplyEnabled,
+                        @Size(max = 500) String autoReplyText,
+                        Boolean vacationMode) {
+
         }
 
         @GetMapping("/me")
@@ -75,6 +82,21 @@ public class UsersController {
                 if (req.phone() != null) {
                         user.setPhone(req.phone());
                 }
+                if (req.coverImage() != null) {
+                        user.setCoverImage(req.coverImage());
+                }
+                if (req.location() != null) {
+                        user.setLocation(req.location());
+                }
+                if (req.autoReplyEnabled() != null) {
+                        user.setAutoReplyEnabled(req.autoReplyEnabled());
+                }
+                if (req.autoReplyText() != null) {
+                        user.setAutoReplyText(req.autoReplyText());
+                }
+                if (req.vacationMode() != null) {
+                        user.setVacationMode(req.vacationMode());
+                }
 
                 User saved = userRepository.save(user);
                 return UserMapper.toDTO(saved);
@@ -102,6 +124,8 @@ public class UsersController {
                                 user.getNickname(),
                                 user.getAvatarUrl(),
                                 user.getBio(),
+                                user.getCoverImage(),
+                                user.getLocation(),
                                 user.getCreatedAt(),
                                 (int) sellingCount,
                                 (int) soldCount);

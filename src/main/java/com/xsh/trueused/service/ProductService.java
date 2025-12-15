@@ -89,11 +89,15 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<ProductDTO> search(String q, Long categoryId, BigDecimal priceMin, BigDecimal priceMax, String sort,
-            int page, int size, Long excludeSellerId) {
+            int page, int size, Long excludeSellerId, Long sellerId, ProductStatus status) {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         Specification<Product> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
-            predicates.add(cb.equal(root.get("status"), ProductStatus.ON_SALE));
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            } else {
+                predicates.add(cb.equal(root.get("status"), ProductStatus.ON_SALE));
+            }
             predicates.add(cb.equal(root.get("isDeleted"), Boolean.FALSE));
             if (q != null && !q.isBlank()) {
                 String pattern = "%" + q.trim() + "%";
@@ -121,8 +125,11 @@ public class ProductService {
             if (priceMax != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("price"), priceMax));
             }
-            // 排除当前用户发布的商品
-            if (excludeSellerId != null) {
+            // Filter by specific seller
+            if (sellerId != null) {
+                predicates.add(cb.equal(root.get("seller").get("id"), sellerId));
+            } else if (excludeSellerId != null) {
+                // 排除当前用户发布的商品
                 predicates.add(cb.notEqual(root.get("seller").get("id"), excludeSellerId));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -161,6 +168,9 @@ public class ProductService {
         p.setLocationText(req.locationText());
         p.setShippingPayer(req.shippingPayer());
         p.setTradeTypes(req.tradeTypes());
+        if (req.tradeModel() != null) {
+            p.setTradeModel(req.tradeModel());
+        }
         p.setLat(req.lat());
         p.setLng(req.lng());
         p.getImages().clear();
@@ -203,6 +213,8 @@ public class ProductService {
             p.setShippingPayer(req.shippingPayer());
         if (req.tradeTypes() != null)
             p.setTradeTypes(req.tradeTypes());
+        if (req.tradeModel() != null)
+            p.setTradeModel(req.tradeModel());
         if (req.lat() != null)
             p.setLat(req.lat());
         if (req.lng() != null)
@@ -270,6 +282,7 @@ public class ProductService {
         p.setPrice(c.getExpectedPrice());
         p.setStatus(ProductStatus.ON_SALE);
         p.setCurrency("CNY");
+        p.setTradeModel(com.xsh.trueused.enums.ProductTradeModel.OFFICIAL_INSPECTION);
         return productRepository.save(p);
     }
 }

@@ -35,6 +35,7 @@ public final class ProductMapper {
                 p.getCurrency(),
                 p.getStatus(),
                 p.getCondition(),
+                p.getTradeModel(),
                 seller,
                 category,
                 p.getLocationText(),

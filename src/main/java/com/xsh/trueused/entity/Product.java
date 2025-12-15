@@ -7,6 +7,7 @@ import java.util.List;
 import com.xsh.trueused.common.BaseEntity;
 import com.xsh.trueused.enums.ProductCondition;
 import com.xsh.trueused.enums.ProductStatus;
+import com.xsh.trueused.enums.ProductTradeModel;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -79,6 +80,10 @@ public class Product extends BaseEntity {
 
         @Column(name = "trade_types", length = 50)
         private String tradeTypes; // EXPRESS, MEETUP (comma separated)
+
+        @Enumerated(EnumType.STRING)
+        @Column(name = "trade_model", length = 20)
+        private ProductTradeModel tradeModel = ProductTradeModel.FREE_TRADING;
 
         @Column
         private Double lat;

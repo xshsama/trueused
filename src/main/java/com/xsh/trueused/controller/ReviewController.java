@@ -66,6 +66,16 @@ public class ReviewController {
         return ResponseEntity.ok(reviews);
     }
 
+    @GetMapping("/received")
+    public ResponseEntity<Page<ReviewDTO>> getReceivedReviews(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<ReviewDTO> reviews = reviewService.getSellerReviews(currentUser.getId(), pageable);
+        return ResponseEntity.ok(reviews);
+    }
+
     @PutMapping("/{id}/reply")
     public ResponseEntity<ReviewDTO> replyReview(
             @PathVariable Long id,

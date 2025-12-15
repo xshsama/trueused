@@ -13,5 +13,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("SELECT c FROM Comment c WHERE c.product.id = :productId AND c.parent IS NULL AND c.isDeleted = false")
     Page<Comment> findByProductId(Long productId, Pageable pageable);
 
+    @Query("SELECT c FROM Comment c WHERE c.targetUser.id = :targetUserId AND c.parent IS NULL AND c.isDeleted = false")
+    Page<Comment> findByTargetUserId(Long targetUserId, Pageable pageable);
+
     long countByProduct(Product product);
 }

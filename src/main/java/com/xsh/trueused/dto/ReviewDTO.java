@@ -1,6 +1,7 @@
 package com.xsh.trueused.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 import lombok.Data;
 
@@ -11,6 +12,7 @@ public class ReviewDTO {
     private Long productId;
     private String productTitle;
     private String productImage;
+    private java.math.BigDecimal price;
     private Long buyerId;
     private String buyerName;
     private String buyerAvatar;
@@ -20,4 +22,5 @@ public class ReviewDTO {
     private String sellerReply;
     private Instant sellerReplyAt;
     private Instant createdAt;
+    private List<String> images;
 }

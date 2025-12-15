@@ -17,6 +17,7 @@ import com.xsh.trueused.dto.ReplyReviewRequest;
 import com.xsh.trueused.dto.ReviewDTO;
 import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.Review;
+import com.xsh.trueused.entity.ReviewImage;
 import com.xsh.trueused.enums.OrderStatus;
 import com.xsh.trueused.mapper.ReviewMapper;
 import com.xsh.trueused.repository.OrderRepository;
@@ -56,6 +57,15 @@ public class ReviewService {
         review.setRating(request.getRating());
         review.setContent(request.getContent());
         review.setIsAnonymous(request.getIsAnonymous());
+
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            for (String url : request.getImages()) {
+                ReviewImage image = new ReviewImage();
+                image.setReview(review);
+                image.setUrl(url);
+                review.getImages().add(image);
+            }
+        }
 
         Review savedReview = reviewRepository.save(review);
         return ReviewMapper.INSTANCE.toDTO(savedReview);

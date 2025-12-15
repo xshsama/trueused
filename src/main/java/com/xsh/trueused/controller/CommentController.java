@@ -45,4 +45,14 @@ public class CommentController {
         Page<CommentDTO> comments = commentService.getProductComments(productId, pageable);
         return ResponseEntity.ok(comments);
     }
+
+    @GetMapping("/sellers/{sellerId}")
+    public ResponseEntity<Page<CommentDTO>> getSellerComments(
+            @PathVariable Long sellerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<CommentDTO> comments = commentService.getSellerComments(sellerId, pageable);
+        return ResponseEntity.ok(comments);
+    }
 }

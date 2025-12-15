@@ -4,10 +4,11 @@ import java.time.Instant;
 import java.util.List;
 
 public record CommentDTO(
-        Long id,
-        Long productId,
-        PublicUserDTO user,
-        String content,
-        Instant createdAt,
-        List<CommentDTO> replies) {
+                Long id,
+                Long productId,
+                Long targetUserId,
+                PublicUserDTO user,
+                String content,
+                Instant createdAt,
+                List<CommentDTO> replies) {
 }

@@ -16,6 +16,7 @@ import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.mapper.UserMapper;
 import com.xsh.trueused.repository.OrderRepository;
 import com.xsh.trueused.repository.ProductRepository;
+import com.xsh.trueused.repository.UserCouponRepository;
 import com.xsh.trueused.repository.UserRepository;
 import com.xsh.trueused.security.user.UserPrincipal;
 
@@ -31,6 +32,8 @@ public class UsersController {
         private final UserRepository userRepository;
         private final ProductRepository productRepository;
         private final OrderRepository orderRepository;
+        private final com.xsh.trueused.repository.MessageRepository messageRepository;
+        private final UserCouponRepository userCouponRepository;
 
         public static record UpdateMeRequest(
                         @Size(max = 50) String nickname,
@@ -55,7 +58,8 @@ public class UsersController {
                 User user = userRepository.findById(principal.getId())
                                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                                                 org.springframework.http.HttpStatus.NOT_FOUND));
-                return UserMapper.toDTO(user);
+                long couponCount = userCouponRepository.countByUserIdAndIsUsedFalse(user.getId());
+                return UserMapper.toDTO(user, (int) couponCount);
         }
 
         @PutMapping("/me")
@@ -99,7 +103,8 @@ public class UsersController {
                 }
 
                 User saved = userRepository.save(user);
-                return UserMapper.toDTO(saved);
+                long couponCount = userCouponRepository.countByUserIdAndIsUsedFalse(saved.getId());
+                return UserMapper.toDTO(saved, (int) couponCount);
         }
 
         @GetMapping("/{id}/public-profile")
@@ -153,6 +158,18 @@ public class UsersController {
                                 cb.equal(root.get("status"), ProductStatus.REJECTED),
                                 cb.equal(root.get("isDeleted"), false))); // 暂时用下架代替违规
 
-                return new SellerStatsDTO(onShelfProducts, pendingOrders, violationProducts);
+                java.math.BigDecimal totalIncome = orderRepository.sumTotalAmountBySellerIdAndStatus(sellerId,
+                                OrderStatus.COMPLETED);
+                if (totalIncome == null)
+                        totalIncome = java.math.BigDecimal.ZERO;
+
+                long unreadMessages = messageRepository.countByReceiverIdAndIsReadFalse(sellerId);
+
+                Long totalViews = productRepository.sumViewsBySellerId(sellerId);
+                if (totalViews == null)
+                        totalViews = 0L;
+
+                return new SellerStatsDTO(onShelfProducts, pendingOrders, violationProducts, totalIncome,
+                                unreadMessages, totalViews);
         }
 }

@@ -10,6 +10,7 @@ import org.mapstruct.factory.Mappers;
 import com.xsh.trueused.dto.ReviewDTO;
 import com.xsh.trueused.entity.Review;
 import com.xsh.trueused.entity.ReviewImage;
+import com.xsh.trueused.util.CloudinaryUrlHelper;
 
 @Mapper
 public interface ReviewMapper {
@@ -29,7 +30,7 @@ public interface ReviewMapper {
     default String getProductImage(Review review) {
         if (review.getProduct() != null && review.getProduct().getImages() != null
                 && !review.getProduct().getImages().isEmpty()) {
-            return review.getProduct().getImages().get(0).getUrl();
+            return CloudinaryUrlHelper.getUrl(review.getProduct().getImages().get(0).getImageKey());
         }
         return null;
     }

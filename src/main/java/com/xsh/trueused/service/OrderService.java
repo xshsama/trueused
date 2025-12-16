@@ -18,8 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xsh.trueused.dto.CreateOrderRequest;
 import com.xsh.trueused.dto.OrderDTO;
+import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ShipOrderRequest;
 import com.xsh.trueused.dto.ShippingInfoDTO;
 import com.xsh.trueused.entity.Address;
@@ -30,6 +32,7 @@ import com.xsh.trueused.entity.UserCoupon;
 import com.xsh.trueused.enums.OrderStatus;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.mapper.OrderMapper;
+import com.xsh.trueused.mapper.ProductMapper;
 import com.xsh.trueused.repository.AddressRepository;
 import com.xsh.trueused.repository.OrderRepository;
 import com.xsh.trueused.repository.ProductRepository;
@@ -43,6 +46,9 @@ import jakarta.persistence.criteria.Predicate;
 public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -64,6 +70,12 @@ public class OrderService {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private ProductService productService;
+
+    @Autowired
+    private OrderMapper orderMapper;
 
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest createOrderRequest, Long buyerId) {
@@ -130,13 +142,22 @@ public class OrderService {
         order.setPrice(finalPrice);
         order.setDiscountAmount(discountAmount);
 
+        // Create product snapshot
+        try {
+            ProductDTO productDTO = ProductMapper.toDTO(product);
+            String snapshot = objectMapper.writeValueAsString(productDTO);
+            order.setProductSnapshot(snapshot);
+        } catch (Exception e) {
+            log.error("Failed to create product snapshot for order", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create product snapshot");
+        }
+
         order.setStatus(OrderStatus.PENDING_PAYMENT); // 初始状态为待付款
 
         Order savedOrder = orderRepository.save(order);
 
         // 7. 更新商品状态为已锁定
-        product.setStatus(ProductStatus.LOCKED);
-        productRepository.save(product);
+        productService.updateProductStatus(product.getId(), ProductStatus.LOCKED);
 
         // 通知卖家有新订单
         notificationService.createNotification(
@@ -153,7 +174,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderDTO> getOrdersByBuyer(Long buyerId) {
         return orderRepository.findByBuyerId(buyerId).stream()
-                .map(OrderMapper.INSTANCE::toDTO)
+                .map(orderMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -181,14 +202,14 @@ public class OrderService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return orderRepository.findAll(spec, pageable).map(OrderMapper.INSTANCE::toDTO);
+        return orderRepository.findAll(spec, pageable).map(orderMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
     public OrderDTO getOrderById(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        return OrderMapper.INSTANCE.toDTO(order);
+        return orderMapper.toDTO(order);
     }
 
     @Transactional
@@ -208,9 +229,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // 更新商品状态为已售出
-        Product product = order.getProduct();
-        product.setStatus(ProductStatus.SOLD_OUT);
-        productRepository.save(product);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD_OUT);
 
         // 通知卖家买家已付款
         notificationService.createNotification(
@@ -247,9 +266,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // 更新商品状态为已售出
-        Product product = order.getProduct();
-        product.setStatus(ProductStatus.SOLD_OUT);
-        productRepository.save(product);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD_OUT);
 
         log.info("Order {} payment success. Transaction ID: {}", orderId, transactionId);
 
@@ -415,9 +432,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // 将商品状态恢复为可购买
-        Product product = order.getProduct();
-        product.setStatus(ProductStatus.ON_SALE);
-        productRepository.save(product);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
 
         // 通知对方订单已取消
         Long targetUserId = order.getBuyer().getId().equals(userId) ? order.getSeller().getId()
@@ -450,9 +465,7 @@ public class OrderService {
         order.setStatus(OrderStatus.REFUNDED);
         orderRepository.save(order);
 
-        Product product = order.getProduct();
-        product.setStatus(ProductStatus.ON_SALE);
-        productRepository.save(product);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
 
         return getOrderById(orderId);
     }
@@ -469,9 +482,7 @@ public class OrderService {
             order.setStatus(OrderStatus.CANCELLED);
 
             // 恢复商品库存/状态
-            Product product = order.getProduct();
-            product.setStatus(ProductStatus.ON_SALE);
-            productRepository.save(product);
+            productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
 
             orderRepository.save(order);
         }

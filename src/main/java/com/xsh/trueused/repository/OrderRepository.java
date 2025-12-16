@@ -25,4 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     Optional<Order> findById(Long id);
 
     List<Order> findByStatusAndCreatedAtBefore(OrderStatus status, Instant dateTime);
+
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(o.price) FROM Order o WHERE o.seller.id = :sellerId AND o.status = :status")
+    java.math.BigDecimal sumTotalAmountBySellerIdAndStatus(Long sellerId, OrderStatus status);
 }

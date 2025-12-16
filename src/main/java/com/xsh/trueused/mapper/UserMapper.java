@@ -11,6 +11,10 @@ public final class UserMapper {
     }
 
     public static UserDTO toDTO(User user) {
+        return toDTO(user, 0);
+    }
+
+    public static UserDTO toDTO(User user, Integer couponCount) {
         return new UserDTO(
                 user.getId(),
                 user.getUsername(),
@@ -30,6 +34,7 @@ public final class UserMapper {
                 user.getLocation(),
                 user.getAutoReplyEnabled(),
                 user.getAutoReplyText(),
-                user.getVacationMode());
+                user.getVacationMode(),
+                couponCount);
     }
 }

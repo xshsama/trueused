@@ -12,5 +12,7 @@ import com.xsh.trueused.entity.UserCoupon;
 public interface UserCouponRepository extends JpaRepository<UserCoupon, Long> {
     List<UserCoupon> findByUserId(Long userId);
 
+    long countByUserIdAndIsUsedFalse(Long userId);
+
     Optional<UserCoupon> findByUserIdAndCouponId(Long userId, Long couponId);
 }

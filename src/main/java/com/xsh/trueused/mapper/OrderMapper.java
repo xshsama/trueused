@@ -1,13 +1,23 @@
 package com.xsh.trueused.mapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xsh.trueused.dto.OrderDTO;
+import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.entity.Order;
 
-public final class OrderMapper {
-    private OrderMapper() {
-    }
+@Component
+public class OrderMapper {
 
-    public static final OrderMapper INSTANCE = new OrderMapper();
+    private static final Logger log = LoggerFactory.getLogger(OrderMapper.class);
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     public OrderDTO toDTO(Order order) {
         if (order == null)
@@ -16,7 +26,23 @@ public final class OrderMapper {
         dto.setId(order.getId());
         dto.setBuyer(UserMapper.toDTO(order.getBuyer()));
         dto.setSeller(UserMapper.toDTO(order.getSeller()));
-        dto.setProduct(ProductMapper.toDTO(order.getProduct()));
+
+        // 优先使用快照
+        ProductDTO productDTO = null;
+        if (order.getProductSnapshot() != null && !order.getProductSnapshot().isEmpty()) {
+            try {
+                productDTO = objectMapper.readValue(order.getProductSnapshot(), ProductDTO.class);
+            } catch (JsonProcessingException e) {
+                log.error("Failed to parse product snapshot for order {}", order.getId(), e);
+            }
+        }
+
+        // 如果快照不存在或解析失败，回退到关联查询
+        if (productDTO == null) {
+            productDTO = ProductMapper.toDTO(order.getProduct());
+        }
+
+        dto.setProduct(productDTO);
         // map address using AddressMapper if available
         dto.setAddress(AddressMapper.INSTANCE == null ? null : AddressMapper.INSTANCE.toDTO(order.getAddress()));
         dto.setPrice(order.getPrice());

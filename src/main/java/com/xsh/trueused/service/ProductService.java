@@ -3,15 +3,18 @@ package com.xsh.trueused.service;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xsh.trueused.dto.ProductCreateRequest;
 import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ProductUpdateRequest;
@@ -28,13 +31,22 @@ import com.xsh.trueused.repository.UserRepository;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+
+    private static final String KEY_STATIC = "product:static:";
+    private static final String KEY_STATUS = "product:status:";
+    private static final String KEY_VIEWS = "product:views:";
+    private static final String KEY_FAVS = "product:favs:";
 
     @Transactional
     public ProductDTO create(ProductCreateRequest req, Long sellerId) {
@@ -45,7 +57,7 @@ public class ProductService {
         applyCreate(req, p);
         p.setStatus(ProductStatus.CREATED); // 初始状态为待入仓
         Product saved = productRepository.save(p);
-        return ProductMapper.toDTO(saved);
+        return ProductMapper.enrich(ProductMapper.toDTO(saved));
     }
 
     @Transactional
@@ -55,7 +67,11 @@ public class ProductService {
             throw new SecurityException("无权修改");
         }
         applyUpdate(req, p);
-        return ProductMapper.toDTO(p);
+
+        // Invalidate static cache
+        redisTemplate.delete(KEY_STATIC + id);
+
+        return ProductMapper.enrich(ProductMapper.toDTO(p));
     }
 
     @Transactional
@@ -65,26 +81,135 @@ public class ProductService {
             throw new SecurityException("无权删除");
         }
         productRepository.delete(p);
+
+        // Clean up cache
+        redisTemplate.delete(KEY_STATIC + id);
+        redisTemplate.delete(KEY_STATUS + id);
+        redisTemplate.delete(KEY_VIEWS + id);
+        redisTemplate.delete(KEY_FAVS + id);
     }
 
     @Transactional(readOnly = true)
     public Optional<ProductDTO> findOne(Long id) {
-        // Increment views count (simple implementation, better with Redis)
-        // We do this in a separate transaction or async to avoid locking, but for now
-        // simple update
-        // Since this method is readOnly=true, we can't save.
-        // So we should separate the increment logic.
-        // But to keep it simple for now, we can just return the DTO.
-        // The controller should call incrementViews.
-        return productRepository.findById(id).map(ProductMapper::toDTO);
+        ProductDTO staticDto = null;
+        String staticKey = KEY_STATIC + id;
+
+        // 1. Try fetch static info from Redis
+        try {
+            String json = redisTemplate.opsForValue().get(staticKey);
+            if (json != null) {
+                staticDto = objectMapper.readValue(json, ProductDTO.class);
+            }
+        } catch (Exception e) {
+            log.error("Failed to read product static cache", e);
+        }
+
+        // 2. If missing, fetch from DB
+        if (staticDto == null) {
+            Optional<Product> pOpt = productRepository.findById(id);
+            if (pOpt.isEmpty()) {
+                return Optional.empty();
+            }
+            staticDto = ProductMapper.toDTO(pOpt.get());
+            // Save to Redis (TTL 6h)
+            try {
+                redisTemplate.opsForValue().set(staticKey, objectMapper.writeValueAsString(staticDto), 6,
+                        TimeUnit.HOURS);
+            } catch (Exception e) {
+                log.error("Failed to write product static cache", e);
+            }
+        }
+
+        // 3. Fetch dynamic data (Status, Views, Favorites)
+        ProductStatus status = staticDto.status();
+        Long views = staticDto.viewsCount();
+        Long favs = staticDto.favoritesCount();
+
+        // Status
+        String statusStr = redisTemplate.opsForValue().get(KEY_STATUS + id);
+        if (statusStr != null) {
+            try {
+                status = ProductStatus.valueOf(statusStr);
+            } catch (IllegalArgumentException e) {
+                // ignore
+            }
+        } else {
+            // Init Redis status from DB value (which is in staticDto)
+            redisTemplate.opsForValue().set(KEY_STATUS + id, status.name());
+        }
+
+        // Views
+        String viewsStr = redisTemplate.opsForValue().get(KEY_VIEWS + id);
+        if (viewsStr != null) {
+            views = Long.parseLong(viewsStr);
+        } else {
+            if (views == null)
+                views = 0L;
+            redisTemplate.opsForValue().set(KEY_VIEWS + id, String.valueOf(views));
+        }
+
+        // Favs
+        String favsStr = redisTemplate.opsForValue().get(KEY_FAVS + id);
+        if (favsStr != null) {
+            favs = Long.parseLong(favsStr);
+        } else {
+            if (favs == null)
+                favs = 0L;
+            redisTemplate.opsForValue().set(KEY_FAVS + id, String.valueOf(favs));
+        }
+
+        // 4. Merge and return
+        return Optional.of(ProductMapper.enrich(withDynamicData(staticDto, status, views, favs)));
+    }
+
+    private ProductDTO withDynamicData(ProductDTO dto, ProductStatus status, Long views, Long favs) {
+        return new ProductDTO(
+                dto.id(), dto.title(), dto.description(), dto.price(), dto.originalPrice(), dto.heatScore(),
+                dto.currency(), status, dto.condition(), dto.tradeModel(), dto.seller(), dto.category(),
+                dto.locationText(), dto.lat(), dto.lng(), views, favs, dto.images(), dto.createdAt(), dto.updatedAt());
     }
 
     @Transactional
     public void incrementViews(Long id) {
-        productRepository.findById(id).ifPresent(p -> {
-            p.setViewsCount(p.getViewsCount() == null ? 1 : p.getViewsCount() + 1);
-            productRepository.save(p);
-        });
+        redisTemplate.opsForValue().increment(KEY_VIEWS + id);
+        redisTemplate.opsForSet().add("product:views:dirty", String.valueOf(id));
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000) // Sync every minute
+    @Transactional
+    public void syncViewsToDB() {
+        java.util.List<String> dirtyIds = redisTemplate.opsForSet().pop("product:views:dirty", 100);
+        if (dirtyIds == null || dirtyIds.isEmpty()) {
+            return;
+        }
+
+        for (String idStr : dirtyIds) {
+            try {
+                Long id = Long.valueOf(idStr);
+                String viewsStr = redisTemplate.opsForValue().get(KEY_VIEWS + id);
+                if (viewsStr != null) {
+                    Long views = Long.valueOf(viewsStr);
+                    productRepository.findById(id).ifPresent(p -> {
+                        p.setViewsCount(views);
+                        productRepository.save(p);
+                    });
+                }
+            } catch (Exception e) {
+                log.error("Failed to sync views for product " + idStr, e);
+            }
+        }
+    }
+
+    @Transactional
+    public void updateProductStatus(Long id, ProductStatus status) {
+        Product p = productRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        p.setStatus(status);
+        productRepository.save(p);
+
+        // Update Redis
+        redisTemplate.opsForValue().set(KEY_STATUS + id, status.name());
+        // Invalidate static cache to be safe
+        redisTemplate.delete(KEY_STATIC + id);
     }
 
     @Transactional(readOnly = true)
@@ -134,7 +259,7 @@ public class ProductService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO);
+        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO).map(ProductMapper::enrich);
     }
 
     private Sort resolveSort(String sort) {
@@ -174,12 +299,12 @@ public class ProductService {
         p.setLat(req.lat());
         p.setLng(req.lng());
         p.getImages().clear();
-        if (req.imageUrls() != null) {
+        if (req.imageKeys() != null) {
             int sort = 0;
-            for (String url : req.imageUrls()) {
+            for (String imageKey : req.imageKeys()) {
                 ProductImage img = new ProductImage();
                 img.setProduct(p);
-                img.setUrl(url);
+                img.setImageKey(imageKey);
                 img.setSort(sort++);
                 img.setIsCover(sort == 1); // 第一张为封面
                 p.getImages().add(img);
@@ -219,13 +344,13 @@ public class ProductService {
             p.setLat(req.lat());
         if (req.lng() != null)
             p.setLng(req.lng());
-        if (req.imageUrls() != null) {
+        if (req.imageKeys() != null) {
             p.getImages().clear();
             int sort = 0;
-            for (String url : req.imageUrls()) {
+            for (String imageKey : req.imageKeys()) {
                 ProductImage img = new ProductImage();
                 img.setProduct(p);
-                img.setUrl(url);
+                img.setImageKey(imageKey);
                 img.setSort(sort++);
                 img.setIsCover(sort == 1);
                 p.getImages().add(img);
@@ -239,8 +364,8 @@ public class ProductService {
         if (!Objects.equals(p.getSeller().getId(), sellerId)) {
             throw new SecurityException("无权操作");
         }
-        p.setStatus(ProductStatus.ON_SALE);
-        return ProductMapper.toDTO(p);
+        updateProductStatus(id, ProductStatus.ON_SALE);
+        return ProductMapper.enrich(ProductMapper.toDTO(p));
     }
 
     @Transactional
@@ -249,8 +374,8 @@ public class ProductService {
         if (!Objects.equals(p.getSeller().getId(), sellerId)) {
             throw new SecurityException("无权操作");
         }
-        p.setStatus(ProductStatus.CANCELLED);
-        return ProductMapper.toDTO(p);
+        updateProductStatus(id, ProductStatus.CANCELLED);
+        return ProductMapper.enrich(ProductMapper.toDTO(p));
     }
 
     @Transactional(readOnly = true)
@@ -270,7 +395,7 @@ public class ProductService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO);
+        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO).map(ProductMapper::enrich);
     }
 
     @Transactional

@@ -29,6 +29,7 @@ import com.xsh.trueused.repository.InspectionItemRepository;
 import com.xsh.trueused.repository.InspectionRepository;
 import com.xsh.trueused.repository.InspectionResultRepository;
 import com.xsh.trueused.repository.OrderRepository;
+import com.xsh.trueused.util.CloudinaryUrlHelper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -249,7 +250,7 @@ public class InspectionService {
             dto.setCategoryName(c.getCategory() != null ? c.getCategory().getName() : "Unknown");
             // Assuming Consignment has product linked or we use placeholder
             if (c.getProduct() != null && !c.getProduct().getImages().isEmpty()) {
-                dto.setProductImage(c.getProduct().getImages().get(0).getUrl());
+                dto.setProductImage(CloudinaryUrlHelper.getUrl(c.getProduct().getImages().get(0).getImageKey()));
             }
             // Determine grade based on result summary or status
             dto.setGrade(determineGrade(inspection));
@@ -260,7 +261,7 @@ public class InspectionService {
                 dto.setProductTitle(p.getTitle());
                 dto.setCategoryName(p.getCategory() != null ? p.getCategory().getName() : "Unknown");
                 if (!p.getImages().isEmpty()) {
-                    dto.setProductImage(p.getImages().get(0).getUrl());
+                    dto.setProductImage(CloudinaryUrlHelper.getUrl(p.getImages().get(0).getImageKey()));
                 }
             }
             dto.setGrade(determineGrade(inspection));

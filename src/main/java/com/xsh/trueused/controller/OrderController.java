@@ -74,6 +74,14 @@ public class OrderController {
         return ResponseEntity.ok(updatedOrder);
     }
 
+    @PutMapping("/{id}/pay-wallet")
+    public ResponseEntity<OrderDTO> payOrderByWallet(@PathVariable Long id,
+            @RequestBody com.xsh.trueused.dto.PayOrderRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        OrderDTO updatedOrder = orderService.payOrderByWallet(id, currentUser.getId(), request.getPassword());
+        return ResponseEntity.ok(updatedOrder);
+    }
+
     /**
      * 发货接口 - 支持传入快递公司和单号
      */

@@ -75,6 +75,9 @@ public class OrderService {
     private ProductService productService;
 
     @Autowired
+    private WalletService walletService;
+
+    @Autowired
     private OrderMapper orderMapper;
 
     @Transactional
@@ -243,6 +246,41 @@ public class OrderService {
     }
 
     @Transactional
+    public OrderDTO payOrderByWallet(Long orderId, Long buyerId, String password) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (!order.getBuyer().getId().equals(buyerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to pay for this order");
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be paid");
+        }
+
+        // Deduct from buyer's wallet
+        walletService.payOrder(buyerId, orderId, order.getPrice(), password);
+
+        order.setStatus(OrderStatus.PAID);
+        order.setPaymentTime(Instant.now());
+        // order.setPaymentMethod("WALLET");
+        orderRepository.save(order);
+
+        // 更新商品状态为已售出
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD_OUT);
+
+        // 通知卖家买家已付款
+        notificationService.createNotification(
+                order.getSeller().getId(),
+                "订单已付款",
+                "订单 [" + order.getId() + "] 买家已付款，请尽快发货。",
+                "ORDER_PAID",
+                order.getId());
+
+        return getOrderById(orderId);
+    }
+
+    @Transactional
     public void handlePaymentSuccess(Long orderId, String transactionId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
@@ -392,6 +430,9 @@ public class OrderService {
         order.setDeliveredAt(Instant.now());
         orderRepository.save(order);
 
+        // Transfer money to seller
+        walletService.transferToSeller(order.getSeller().getId(), orderId, order.getPrice());
+
         // 通知卖家订单已完成
         notificationService.createNotification(
                 order.getSeller().getId(),
@@ -464,6 +505,9 @@ public class OrderService {
 
         order.setStatus(OrderStatus.REFUNDED);
         orderRepository.save(order);
+
+        // Refund to buyer
+        walletService.refund(order.getBuyer().getId(), orderId, order.getPrice());
 
         productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
 

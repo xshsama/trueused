@@ -47,7 +47,7 @@ public class BrowsingHistoryService {
         return browsingHistoryRepository.findByUserIdOrderByViewedAtDesc(userId, pageable)
                 .map(history -> new BrowsingHistoryDTO(
                         history.getId(),
-                        ProductMapper.toDTO(history.getProduct()),
+                        ProductMapper.enrich(ProductMapper.toDTO(history.getProduct())),
                         history.getViewedAt()));
     }
 

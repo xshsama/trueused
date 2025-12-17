@@ -19,7 +19,6 @@ import com.xsh.trueused.dto.ProductCreateRequest;
 import com.xsh.trueused.dto.ProductDTO;
 import com.xsh.trueused.dto.ProductUpdateRequest;
 import com.xsh.trueused.entity.Category;
-import com.xsh.trueused.entity.Consignment;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.ProductImage;
 import com.xsh.trueused.entity.User;
@@ -55,7 +54,14 @@ public class ProductService {
         Product p = new Product();
         p.setSeller(seller);
         applyCreate(req, p);
-        p.setStatus(ProductStatus.CREATED); // 初始状态为待入仓
+
+        // 根据交易模式设置初始状态
+        if (p.getTradeModel() == com.xsh.trueused.enums.ProductTradeModel.FREE_TRADING) {
+            p.setStatus(ProductStatus.ON_SALE); // 自主售卖直接上架
+        } else {
+            p.setStatus(ProductStatus.PENDING); // 其他模式（如寄售）默认为待入仓/待处理
+        }
+
         Product saved = productRepository.save(p);
         return ProductMapper.enrich(ProductMapper.toDTO(saved));
     }
@@ -374,7 +380,7 @@ public class ProductService {
         if (!Objects.equals(p.getSeller().getId(), sellerId)) {
             throw new SecurityException("无权操作");
         }
-        updateProductStatus(id, ProductStatus.CANCELLED);
+        updateProductStatus(id, ProductStatus.OFF_SHELF);
         return ProductMapper.enrich(ProductMapper.toDTO(p));
     }
 
@@ -396,18 +402,5 @@ public class ProductService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO).map(ProductMapper::enrich);
-    }
-
-    @Transactional
-    public Product createFromConsignment(Consignment c) {
-        Product p = new Product();
-        p.setSeller(c.getSeller());
-        p.setTitle(c.getTitle());
-        p.setDescription(c.getDescription());
-        p.setPrice(c.getExpectedPrice());
-        p.setStatus(ProductStatus.ON_SALE);
-        p.setCurrency("CNY");
-        p.setTradeModel(com.xsh.trueused.enums.ProductTradeModel.OFFICIAL_INSPECTION);
-        return productRepository.save(p);
     }
 }

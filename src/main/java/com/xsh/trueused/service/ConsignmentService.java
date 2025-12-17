@@ -14,11 +14,15 @@ import com.xsh.trueused.dto.ConsignmentResponse;
 import com.xsh.trueused.dto.PublicUserDTO;
 import com.xsh.trueused.entity.Category;
 import com.xsh.trueused.entity.Consignment;
+import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.enums.ConsignmentStatus;
+import com.xsh.trueused.enums.ProductStatus;
+import com.xsh.trueused.enums.ProductTradeModel;
 import com.xsh.trueused.mapper.ProductMapper;
 import com.xsh.trueused.repository.CategoryRepository;
 import com.xsh.trueused.repository.ConsignmentRepository;
+import com.xsh.trueused.repository.ProductRepository;
 import com.xsh.trueused.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -34,6 +38,7 @@ public class ConsignmentService {
     private final InspectionService inspectionService;
     private final CategoryRepository categoryRepository;
     private final ApplicationContext applicationContext;
+    private final ProductRepository productRepository;
 
     @Transactional
     public ConsignmentResponse createConsignment(ConsignmentCreateRequest req, Long sellerId) {
@@ -43,14 +48,37 @@ public class ConsignmentService {
         Category category = categoryRepository.findById(req.getCategoryId())
                 .orElseThrow(() -> new RuntimeException("Category not found"));
 
+        // Create Product
+        Product product = new Product();
+        product.setSeller(seller);
+        product.setCategory(category);
+        product.setTitle(req.getTitle());
+        product.setDescription(req.getDescription());
+        product.setPrice(req.getExpectedPrice());
+        product.setOriginalPrice(req.getOriginalPrice());
+        product.setTradeModel(ProductTradeModel.OFFICIAL_INSPECTION);
+
+        // 无论是否有物流单号，商品状态在寄售初期都应为 PENDING
+        product.setStatus(ProductStatus.PENDING);
+
+        product = productRepository.save(product);
+
         Consignment consignment = new Consignment();
         consignment.setSeller(seller);
         consignment.setTitle(req.getTitle());
         consignment.setDescription(req.getDescription());
         consignment.setExpectedPrice(req.getExpectedPrice());
+        consignment.setOriginalPrice(req.getOriginalPrice());
         consignment.setShippingMethod(req.getShippingMethod());
         consignment.setTrackingNoInbound(req.getTrackingNoInbound());
-        consignment.setStatus(ConsignmentStatus.CREATED);
+        consignment.setProduct(product);
+
+        if (req.getTrackingNoInbound() != null && !req.getTrackingNoInbound().isEmpty()) {
+            consignment.setStatus(ConsignmentStatus.SHIPPED);
+        } else {
+            consignment.setStatus(ConsignmentStatus.CREATED);
+        }
+
         consignment.setCategory(category);
 
         consignment = consignmentRepository.save(consignment);
@@ -72,6 +100,13 @@ public class ConsignmentService {
 
         consignment.setTrackingNoInbound(trackingNo);
         consignment.setStatus(ConsignmentStatus.SHIPPED);
+
+        // 商品状态保持 PENDING，无需更新
+        // if (consignment.getProduct() != null) {
+        // consignment.getProduct().setStatus(ProductStatus.PENDING);
+        // productRepository.save(consignment.getProduct());
+        // }
+
         consignment = consignmentRepository.save(consignment);
 
         // Simulate shipping delay and auto-receive
@@ -98,6 +133,13 @@ public class ConsignmentService {
         }
 
         consignment.setStatus(ConsignmentStatus.RECEIVED);
+
+        // 商品状态保持 PENDING，无需更新
+        // if (consignment.getProduct() != null) {
+        // consignment.getProduct().setStatus(ProductStatus.PENDING);
+        // productRepository.save(consignment.getProduct());
+        // }
+
         consignment = consignmentRepository.save(consignment);
 
         // Trigger Inspection
@@ -119,6 +161,7 @@ public class ConsignmentService {
         dto.setTitle(c.getTitle());
         dto.setDescription(c.getDescription());
         dto.setExpectedPrice(c.getExpectedPrice());
+        dto.setOriginalPrice(c.getOriginalPrice());
         dto.setShippingMethod(c.getShippingMethod());
         dto.setTrackingNoInbound(c.getTrackingNoInbound());
         dto.setStatus(c.getStatus());
@@ -142,7 +185,7 @@ public class ConsignmentService {
         }
 
         if (c.getProduct() != null) {
-            dto.setProduct(ProductMapper.toDTO(c.getProduct()));
+            dto.setProduct(ProductMapper.enrich(ProductMapper.toDTO(c.getProduct())));
         }
 
         return dto;

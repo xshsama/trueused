@@ -36,6 +36,9 @@ public class Consignment extends BaseEntity {
     @Column(name = "expected_price", precision = 10, scale = 2)
     private BigDecimal expectedPrice;
 
+    @Column(name = "original_price", precision = 10, scale = 2)
+    private BigDecimal originalPrice;
+
     @Column(name = "shipping_method")
     private String shippingMethod;
 

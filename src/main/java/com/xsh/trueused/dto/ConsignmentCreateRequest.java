@@ -16,6 +16,8 @@ public class ConsignmentCreateRequest {
     @NotNull(message = "Expected price is required")
     private BigDecimal expectedPrice;
 
+    private BigDecimal originalPrice;
+
     @NotBlank(message = "Shipping method is required")
     private String shippingMethod;
 

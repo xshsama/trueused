@@ -232,7 +232,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // 更新商品状态为已售出
-        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD_OUT);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD);
 
         // 通知卖家买家已付款
         notificationService.createNotification(
@@ -267,7 +267,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // 更新商品状态为已售出
-        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD_OUT);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD);
 
         // 通知卖家买家已付款
         notificationService.createNotification(
@@ -304,7 +304,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // 更新商品状态为已售出
-        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD_OUT);
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.SOLD);
 
         log.info("Order {} payment success. Transaction ID: {}", orderId, transactionId);
 

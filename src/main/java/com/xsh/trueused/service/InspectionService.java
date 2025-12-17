@@ -24,6 +24,7 @@ import com.xsh.trueused.entity.InspectionResult;
 import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.enums.ConsignmentStatus;
+import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.repository.ConsignmentRepository;
 import com.xsh.trueused.repository.InspectionItemRepository;
 import com.xsh.trueused.repository.InspectionRepository;
@@ -101,6 +102,12 @@ public class InspectionService {
                 .orElseThrow(() -> new RuntimeException("Consignment not found"));
 
         consignment.setStatus(ConsignmentStatus.INSPECTING);
+        // 商品状态保持 PENDING，无需更新
+        // if (consignment.getProduct() != null) {
+        // consignment.getProduct().setStatus(ProductStatus.PENDING);
+        // productService.updateProductStatus(consignment.getProduct().getId(),
+        // ProductStatus.PENDING);
+        // }
         consignmentRepository.save(consignment);
 
         Inspection inspection = new Inspection();
@@ -324,6 +331,12 @@ public class InspectionService {
         } catch (Exception e) {
             log.error("Error during inspection simulation", e);
             self.updateInspectionStatus(inspectionId, "FAILED");
+
+            // Handle Consignment Failure
+            Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
+            if (inspection.getConsignment() != null) {
+                self.handleConsignmentInspectionFailure(inspection.getConsignment().getId());
+            }
         }
     }
 
@@ -346,7 +359,21 @@ public class InspectionService {
         Consignment consignment = consignmentRepository.findById(consignmentId).orElseThrow();
         consignment.setStatus(ConsignmentStatus.PASSED);
         consignmentRepository.save(consignment);
-        productService.createFromConsignment(consignment);
+
+        if (consignment.getProduct() != null) {
+            productService.updateProductStatus(consignment.getProduct().getId(), ProductStatus.ON_SALE);
+        }
+    }
+
+    @Transactional
+    public void handleConsignmentInspectionFailure(Long consignmentId) {
+        Consignment consignment = consignmentRepository.findById(consignmentId).orElseThrow();
+        consignment.setStatus(ConsignmentStatus.REJECTED);
+        consignmentRepository.save(consignment);
+
+        if (consignment.getProduct() != null) {
+            productService.updateProductStatus(consignment.getProduct().getId(), ProductStatus.OFF_SHELF);
+        }
     }
 
     private String getRandomNote(String itemName) {

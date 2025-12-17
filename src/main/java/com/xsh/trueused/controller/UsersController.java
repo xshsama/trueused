@@ -155,7 +155,7 @@ public class UsersController {
 
                 long violationProducts = productRepository.count((root, query, cb) -> cb.and(
                                 cb.equal(root.get("seller").get("id"), sellerId),
-                                cb.equal(root.get("status"), ProductStatus.REJECTED),
+                                cb.equal(root.get("status"), ProductStatus.OFF_SHELF),
                                 cb.equal(root.get("isDeleted"), false))); // 暂时用下架代替违规
 
                 java.math.BigDecimal totalIncome = orderRepository.sumTotalAmountBySellerIdAndStatus(sellerId,

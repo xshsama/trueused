@@ -14,6 +14,7 @@ public class ConsignmentResponse {
     private String title;
     private String description;
     private BigDecimal expectedPrice;
+    private BigDecimal originalPrice;
     private String shippingMethod;
     private String trackingNoInbound;
     private ConsignmentStatus status;

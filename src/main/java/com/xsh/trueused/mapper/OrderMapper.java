@@ -42,7 +42,7 @@ public class OrderMapper {
             productDTO = ProductMapper.toDTO(order.getProduct());
         }
 
-        dto.setProduct(productDTO);
+        dto.setProduct(ProductMapper.enrich(productDTO));
         // map address using AddressMapper if available
         dto.setAddress(AddressMapper.INSTANCE == null ? null : AddressMapper.INSTANCE.toDTO(order.getAddress()));
         dto.setPrice(order.getPrice());

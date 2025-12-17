@@ -62,7 +62,7 @@ public class Product extends BaseEntity {
 
         @Enumerated(EnumType.STRING)
         @Column(nullable = false, length = 20)
-        private ProductStatus status = ProductStatus.CREATED;
+        private ProductStatus status = ProductStatus.PENDING;
 
         @Enumerated(EnumType.STRING)
         @Column(name = "item_condition", length = 20)

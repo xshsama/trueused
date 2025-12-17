@@ -13,6 +13,7 @@ public final class FavoriteMapper {
                 f.getProduct() != null ? f.getProduct().getId() : null,
                 f.getUser() != null ? f.getUser().getId() : null,
                 f.getNote(),
-                f.getCreatedAt());
+                f.getCreatedAt(),
+                f.getProduct() != null ? ProductMapper.enrich(ProductMapper.toDTO(f.getProduct())) : null);
     }
 }

@@ -25,6 +25,7 @@ import com.xsh.trueused.entity.User;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.mapper.ProductMapper;
 import com.xsh.trueused.repository.CategoryRepository;
+import com.xsh.trueused.repository.FavoriteRepository;
 import com.xsh.trueused.repository.ProductRepository;
 import com.xsh.trueused.repository.UserRepository;
 
@@ -38,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final FavoriteRepository favoriteRepository;
+    private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -72,12 +75,58 @@ public class ProductService {
         if (!Objects.equals(p.getSeller().getId(), sellerId)) {
             throw new SecurityException("无权修改");
         }
+
+        BigDecimal oldPrice = p.getPrice();
+
         applyUpdate(req, p);
+
+        // Price Drop Notification
+        if (req.price() != null && req.price().compareTo(oldPrice) < 0) {
+            notifyPriceDrop(p, oldPrice, req.price());
+        }
 
         // Invalidate static cache
         redisTemplate.delete(KEY_STATIC + id);
 
         return ProductMapper.enrich(ProductMapper.toDTO(p));
+    }
+
+    private void notifyPriceDrop(Product p, BigDecimal oldPrice, BigDecimal newPrice) {
+        java.util.List<com.xsh.trueused.entity.Favorite> favorites = favoriteRepository.findByProduct(p);
+        for (com.xsh.trueused.entity.Favorite fav : favorites) {
+            String title = "降价提醒";
+            String content = String.format("您收藏的宝贝“%s”降价了！从 ¥%s 降至 ¥%s",
+                    p.getTitle(), oldPrice, newPrice);
+            notificationService.createNotification(
+                    fav.getUser().getId(),
+                    title,
+                    content,
+                    "PRICE_DROP",
+                    p.getId());
+        }
+    }
+
+    @Transactional
+    public void polishProduct(Long id, Long sellerId) {
+        Product p = productRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        if (!Objects.equals(p.getSeller().getId(), sellerId)) {
+            throw new SecurityException("无权操作");
+        }
+
+        // Check if already polished today
+        java.time.LocalDate lastUpdateDate = java.time.LocalDate.ofInstant(p.getUpdatedAt(),
+                java.time.ZoneId.systemDefault());
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        if (lastUpdateDate.equals(today)) {
+            throw new IllegalStateException("每天只能擦亮一次");
+        }
+
+        p.setUpdatedAt(java.time.Instant.now());
+        productRepository.save(p);
+
+        // Invalidate cache
+        redisTemplate.delete(KEY_STATIC + id);
     }
 
     @Transactional

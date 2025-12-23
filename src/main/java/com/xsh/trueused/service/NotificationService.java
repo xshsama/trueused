@@ -20,6 +20,9 @@ public class NotificationService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+
     @Transactional
     public void createNotification(Long userId, String title, String content, String type, Long relatedId) {
         User user = userRepository.findById(userId)
@@ -33,6 +36,13 @@ public class NotificationService {
         notification.setRelatedId(relatedId);
 
         notificationRepository.save(notification);
+
+        // Send WebSocket notification
+        // Client subscribes to /user/queue/notifications
+        messagingTemplate.convertAndSendToUser(
+                user.getUsername(),
+                "/queue/notifications",
+                notification);
     }
 
     @Transactional(readOnly = true)

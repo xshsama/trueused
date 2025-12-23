@@ -13,7 +13,7 @@ import com.xsh.trueused.dto.SendMessageRequest;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.repository.UserRepository;
 import com.xsh.trueused.security.user.UserPrincipal;
-import com.xsh.trueused.service.MessageService;
+import com.xsh.trueused.service.ChatMessageService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class MessageController {
 
         private final SimpMessagingTemplate simpMessagingTemplate;
-        private final MessageService messageService;
+        private final ChatMessageService chatMessageService;
         private final UserRepository userRepository;
 
         @PostMapping
@@ -34,7 +34,7 @@ public class MessageController {
                 }
 
                 // Save message to DB
-                ChatMessageDTO savedMessage = messageService.saveMessage(sender.getId(), request.getReceiverId(),
+                ChatMessageDTO savedMessage = chatMessageService.saveMessage(sender.getId(), request.getReceiverId(),
                                 request.getContent());
 
                 // Find receiver's username to send via WebSocket

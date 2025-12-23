@@ -25,4 +25,6 @@ public class ConsignmentCreateRequest {
 
     @NotNull(message = "Category ID is required")
     private Long categoryId;
+
+    private java.util.List<String> imageKeys;
 }

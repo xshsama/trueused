@@ -139,4 +139,20 @@ public class ProductController {
                     org.springframework.http.HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
+
+    @PutMapping("/{id}/polish")
+    public void polish(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        try {
+            productService.polishProduct(id, principal.getId());
+        } catch (SecurityException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalStateException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
 }

@@ -1,0 +1,116 @@
+package com.xsh.trueused.service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.xsh.trueused.dto.ChatMessageDTO;
+import com.xsh.trueused.entity.ChatSession;
+import com.xsh.trueused.entity.ChatMessage;
+import com.xsh.trueused.entity.User;
+import com.xsh.trueused.repository.ChatSessionRepository;
+import com.xsh.trueused.repository.ChatMessageRepository;
+import com.xsh.trueused.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ChatMessageService {
+
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatSessionRepository chatSessionRepository;
+    private final UserRepository userRepository;
+    private final ChatSessionService chatSessionService;
+
+    @Transactional
+    public ChatMessageDTO saveMessage(Long senderId, Long receiverId, String content) {
+        log.info("Saving message from {} to {}: {}", senderId, receiverId, content);
+        User sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new RuntimeException("Sender not found"));
+        User receiver = userRepository.findById(receiverId)
+                .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+        ChatSession session = chatSessionService.getOrCreateChatSession(senderId, receiverId);
+        log.info("Using chat session ID: {}", session.getId());
+
+        ChatMessage message = new ChatMessage();
+        message.setChatSession(session);
+        message.setSender(sender);
+        message.setReceiver(receiver);
+        message.setContent(content);
+        message.setRead(false);
+
+        ChatMessage savedMessage = chatMessageRepository.save(message);
+        log.info("Message saved to repository with ID: {}", savedMessage.getId());
+
+        // Update session snapshot and unread count
+        session.setLastMessageContent(content);
+        session.setLastMessageTime(savedMessage.getCreatedAt()); // Assuming savedMessage has createdAt populated by auditing or manually
+
+        if (session.getUserA().getId().equals(senderId)) {
+            // Sender is A, so increment B's unread
+            session.setUnreadCountB(session.getUnreadCountB() + 1);
+        } else {
+            // Sender is B, so increment A's unread
+            session.setUnreadCountA(session.getUnreadCountA() + 1);
+        }
+
+        chatSessionRepository.save(session);
+        log.info("ChatSession updated with last message snapshot");
+
+        return convertToDTO(savedMessage, senderId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatMessageDTO> getMessages(Long sessionId, Long currentUserId, Pageable pageable) {
+        ChatSession session = chatSessionService.getChatSession(sessionId);
+
+        // Security check
+        if (!session.getUserA().getId().equals(currentUserId) &&
+                !session.getUserB().getId().equals(currentUserId)) {
+            throw new RuntimeException("Access denied");
+        }
+
+        Page<ChatMessage> messagePage = chatMessageRepository.findByChatSessionIdOrderByCreatedAtDesc(sessionId,
+                pageable);
+
+        return messagePage.getContent().stream()
+                .map(msg -> convertToDTO(msg, currentUserId))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void markAsRead(Long sessionId, Long userId) {
+        // Mark messages as read in message table
+        chatMessageRepository.markMessagesAsRead(sessionId, userId);
+        
+        // Reset unread count in session table
+        ChatSession session = chatSessionService.getChatSession(sessionId);
+        if (session.getUserA().getId().equals(userId)) {
+            session.setUnreadCountA(0);
+        } else if (session.getUserB().getId().equals(userId)) {
+            session.setUnreadCountB(0);
+        }
+        chatSessionRepository.save(session);
+    }
+
+    private ChatMessageDTO convertToDTO(ChatMessage message, Long currentUserId) {
+        ChatMessageDTO dto = new ChatMessageDTO();
+        dto.setId(message.getId());
+        dto.setConversationId(message.getChatSession().getId());
+        dto.setSenderId(message.getSender().getId());
+        dto.setReceiverId(message.getReceiver().getId());
+        dto.setContent(message.getContent());
+        dto.setTimestamp(message.getCreatedAt());
+        dto.setRead(message.isRead());
+        dto.setSelf(message.getSender().getId().equals(currentUserId));
+        return dto;
+    }
+}

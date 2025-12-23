@@ -14,6 +14,7 @@ import com.xsh.trueused.entity.User;
 import com.xsh.trueused.enums.OrderStatus;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.mapper.UserMapper;
+import com.xsh.trueused.repository.ChatMessageRepository;
 import com.xsh.trueused.repository.OrderRepository;
 import com.xsh.trueused.repository.ProductRepository;
 import com.xsh.trueused.repository.UserCouponRepository;
@@ -32,7 +33,7 @@ public class UsersController {
         private final UserRepository userRepository;
         private final ProductRepository productRepository;
         private final OrderRepository orderRepository;
-        private final com.xsh.trueused.repository.MessageRepository messageRepository;
+        private final ChatMessageRepository chatMessageRepository;
         private final UserCouponRepository userCouponRepository;
 
         public static record UpdateMeRequest(
@@ -163,7 +164,7 @@ public class UsersController {
                 if (totalIncome == null)
                         totalIncome = java.math.BigDecimal.ZERO;
 
-                long unreadMessages = messageRepository.countByReceiverIdAndIsReadFalse(sellerId);
+                long unreadMessages = chatMessageRepository.countByReceiverIdAndIsReadFalse(sellerId);
 
                 Long totalViews = productRepository.sumViewsBySellerId(sellerId);
                 if (totalViews == null)

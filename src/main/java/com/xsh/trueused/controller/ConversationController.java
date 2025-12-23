@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.xsh.trueused.dto.ChatMessageDTO;
 import com.xsh.trueused.dto.ConversationDTO;
-import com.xsh.trueused.entity.Conversation;
+import com.xsh.trueused.entity.ChatSession;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.security.user.UserPrincipal;
-import com.xsh.trueused.service.ConversationService;
-import com.xsh.trueused.service.MessageService;
+import com.xsh.trueused.service.ChatSessionService;
+import com.xsh.trueused.service.ChatMessageService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,25 +29,25 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ConversationController {
 
-    private final ConversationService conversationService;
-    private final MessageService messageService;
+    private final ChatSessionService chatSessionService;
+    private final ChatMessageService chatMessageService;
 
     @GetMapping
     public ResponseEntity<List<ConversationDTO>> getConversations(@AuthenticationPrincipal UserPrincipal currentUser) {
-        List<ConversationDTO> conversations = conversationService.getUserConversations(currentUser.getId());
+        List<ConversationDTO> conversations = chatSessionService.getUserConversations(currentUser.getId());
         return ResponseEntity.ok(conversations);
     }
 
-    @GetMapping("/{conversationId}/messages")
+    @GetMapping("/{sessionId}/messages")
     public ResponseEntity<List<ChatMessageDTO>> getMessages(
-            @PathVariable Long conversationId,
+            @PathVariable Long sessionId,
             @AuthenticationPrincipal UserPrincipal currentUser,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        List<ChatMessageDTO> messages = messageService.getMessages(conversationId, currentUser.getId(), pageable);
+        List<ChatMessageDTO> messages = chatMessageService.getMessages(sessionId, currentUser.getId(), pageable);
 
         // Mark as read when fetching
-        messageService.markAsRead(conversationId, currentUser.getId());
+        chatMessageService.markAsRead(sessionId, currentUser.getId());
 
         return ResponseEntity.ok(messages);
     }
@@ -56,23 +56,28 @@ public class ConversationController {
     public ResponseEntity<ConversationDTO> startConversation(
             @RequestParam Long userId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        Conversation conversation = conversationService.getOrCreateConversation(currentUser.getId(), userId);
+        ChatSession session = chatSessionService.getOrCreateChatSession(currentUser.getId(), userId);
 
         // Convert to DTO
         ConversationDTO dto = new ConversationDTO();
-        dto.setId(conversation.getId());
+        dto.setId(session.getId());
 
-        User otherUser = conversation.getParticipant1().getId().equals(currentUser.getId())
-                ? conversation.getParticipant2()
-                : conversation.getParticipant1();
+        User otherUser = session.getUserA().getId().equals(currentUser.getId())
+                ? session.getUserB()
+                : session.getUserA();
 
         dto.setOtherUserId(otherUser.getId());
         dto.setOtherUserName(otherUser.getNickname() != null ? otherUser.getNickname() : otherUser.getUsername());
         dto.setOtherUserAvatar(otherUser.getAvatarUrl());
 
-        if (conversation.getLastMessage() != null) {
-            dto.setLastMessage(conversation.getLastMessage().getContent());
-            dto.setLastMessageTime(conversation.getLastMessage().getCreatedAt());
+        dto.setLastMessage(session.getLastMessageContent());
+        dto.setLastMessageTime(session.getLastMessageTime());
+        
+        // Unread count (probably 0 for new session or whatever is in DB)
+        if (session.getUserA().getId().equals(currentUser.getId())) {
+            dto.setUnreadCount(session.getUnreadCountA());
+        } else {
+            dto.setUnreadCount(session.getUnreadCountB());
         }
 
         return ResponseEntity.ok(dto);

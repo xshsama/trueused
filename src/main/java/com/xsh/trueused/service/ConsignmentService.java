@@ -15,6 +15,7 @@ import com.xsh.trueused.dto.PublicUserDTO;
 import com.xsh.trueused.entity.Category;
 import com.xsh.trueused.entity.Consignment;
 import com.xsh.trueused.entity.Product;
+import com.xsh.trueused.entity.ProductImage;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.enums.ConsignmentStatus;
 import com.xsh.trueused.enums.ProductStatus;
@@ -60,6 +61,18 @@ public class ConsignmentService {
 
         // 无论是否有物流单号，商品状态在寄售初期都应为 PENDING
         product.setStatus(ProductStatus.PENDING);
+
+        if (req.getImageKeys() != null && !req.getImageKeys().isEmpty()) {
+            List<ProductImage> images = new java.util.ArrayList<>();
+            for (int i = 0; i < req.getImageKeys().size(); i++) {
+                ProductImage img = new ProductImage();
+                img.setImageKey(req.getImageKeys().get(i));
+                img.setSort(i);
+                img.setProduct(product);
+                images.add(img);
+            }
+            product.setImages(images);
+        }
 
         product = productRepository.save(product);
 

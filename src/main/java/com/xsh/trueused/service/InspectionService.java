@@ -46,6 +46,7 @@ public class InspectionService {
     private final OrderRepository orderRepository;
     private final ConsignmentRepository consignmentRepository;
     private final ProductService productService;
+    private final NotificationService notificationService;
     private final ApplicationContext applicationContext;
 
     private final Random random = new Random();
@@ -322,8 +323,25 @@ public class InspectionService {
             self.updateInspectionSummary(inspectionId, "All checks passed. Device is in good condition.");
             log.info("Inspection simulation completed for inspection: {}", inspectionId);
 
-            // Handle Consignment Success
+            // Notify user
             Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
+            Long userId = null;
+            if (inspection.getOrder() != null) {
+                userId = inspection.getOrder().getBuyer().getId();
+            } else if (inspection.getConsignment() != null) {
+                userId = inspection.getConsignment().getSeller().getId();
+            }
+
+            if (userId != null) {
+                notificationService.createNotification(
+                        userId,
+                        "验货完成",
+                        "您的商品验货已完成，结果：通过。",
+                        "INSPECTION_COMPLETED",
+                        inspectionId);
+            }
+
+            // Handle Consignment Success
             if (inspection.getConsignment() != null) {
                 self.handleConsignmentInspectionSuccess(inspection.getConsignment().getId());
             }
@@ -332,10 +350,36 @@ public class InspectionService {
             log.error("Error during inspection simulation", e);
             self.updateInspectionStatus(inspectionId, "FAILED");
 
+            // Notify user of failure
+            try {
+                Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
+                Long userId = null;
+                if (inspection.getOrder() != null) {
+                    userId = inspection.getOrder().getBuyer().getId();
+                } else if (inspection.getConsignment() != null) {
+                    userId = inspection.getConsignment().getSeller().getId();
+                }
+
+                if (userId != null) {
+                    notificationService.createNotification(
+                            userId,
+                            "验货未通过",
+                            "很遗憾，您的商品未通过验货。",
+                            "INSPECTION_FAILED",
+                            inspectionId);
+                }
+            } catch (Exception ex) {
+                log.error("Failed to send inspection failure notification", ex);
+            }
+
             // Handle Consignment Failure
-            Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
-            if (inspection.getConsignment() != null) {
-                self.handleConsignmentInspectionFailure(inspection.getConsignment().getId());
+            try {
+                Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
+                if (inspection.getConsignment() != null) {
+                    self.handleConsignmentInspectionFailure(inspection.getConsignment().getId());
+                }
+            } catch (Exception ex) {
+                log.error("Failed to handle consignment failure", ex);
             }
         }
     }

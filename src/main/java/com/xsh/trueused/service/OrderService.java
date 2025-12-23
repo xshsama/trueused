@@ -511,6 +511,14 @@ public class OrderService {
 
         productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
 
+        // Notify buyer
+        notificationService.createNotification(
+                order.getBuyer().getId(),
+                "订单已退款",
+                "您的订单 [" + order.getId() + "] 卖家已发起退款，金额将退回您的钱包。",
+                "ORDER_REFUNDED",
+                order.getId());
+
         return getOrderById(orderId);
     }
 
@@ -529,6 +537,14 @@ public class OrderService {
             productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
 
             orderRepository.save(order);
+
+            // Notify buyer
+            notificationService.createNotification(
+                    order.getBuyer().getId(),
+                    "订单已取消",
+                    "您的订单 [" + order.getId() + "] 因超时未支付已自动取消。",
+                    "ORDER_CANCELLED",
+                    order.getId());
         }
     }
 }

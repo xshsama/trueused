@@ -5,15 +5,17 @@ import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.xsh.trueused.dto.ChatMessageDTO;
-import com.xsh.trueused.entity.ChatSession;
 import com.xsh.trueused.entity.ChatMessage;
+import com.xsh.trueused.entity.ChatSession;
 import com.xsh.trueused.entity.User;
-import com.xsh.trueused.repository.ChatSessionRepository;
 import com.xsh.trueused.repository.ChatMessageRepository;
+import com.xsh.trueused.repository.ChatSessionRepository;
 import com.xsh.trueused.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,8 @@ public class ChatMessageService {
     private final ChatSessionRepository chatSessionRepository;
     private final UserRepository userRepository;
     private final ChatSessionService chatSessionService;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final SimpUserRegistry userRegistry;
 
     @Transactional
     public ChatMessageDTO saveMessage(Long senderId, Long receiverId, String content) {
@@ -50,22 +54,45 @@ public class ChatMessageService {
         ChatMessage savedMessage = chatMessageRepository.save(message);
         log.info("Message saved to repository with ID: {}", savedMessage.getId());
 
-        // Update session snapshot and unread count
+        // Update session snapshot
         session.setLastMessageContent(content);
-        session.setLastMessageTime(savedMessage.getCreatedAt()); // Assuming savedMessage has createdAt populated by auditing or manually
+        session.setLastMessageTime(savedMessage.getCreatedAt());
 
-        if (session.getUserA().getId().equals(senderId)) {
-            // Sender is A, so increment B's unread
-            session.setUnreadCountB(session.getUnreadCountB() + 1);
-        } else {
-            // Sender is B, so increment A's unread
-            session.setUnreadCountA(session.getUnreadCountA() + 1);
+        // Check if receiver is online
+        boolean isReceiverOnline = userRegistry.getUser(receiver.getUsername()) != null;
+
+        // Debug log for online users
+        log.info("Checking online status for: {}. Is Online: {}", receiver.getUsername(), isReceiverOnline);
+        log.info("Current online users: {}", userRegistry.getUsers().stream()
+                .map(u -> u.getName())
+                .collect(Collectors.toList()));
+
+        // Only increment unread count if receiver is OFFLINE
+        if (!isReceiverOnline) {
+            if (session.getUserA().getId().equals(senderId)) {
+                session.setUnreadCountB(session.getUnreadCountB() + 1);
+            } else {
+                session.setUnreadCountA(session.getUnreadCountA() + 1);
+            }
         }
 
         chatSessionRepository.save(session);
-        log.info("ChatSession updated with last message snapshot");
+        log.info("ChatSession updated. Receiver online: {}", isReceiverOnline);
 
-        return convertToDTO(savedMessage, senderId);
+        ChatMessageDTO messageDTO = convertToDTO(savedMessage, senderId);
+
+        if (isReceiverOnline) {
+            // Real-time push to receiver
+            messagingTemplate.convertAndSendToUser(
+                    receiver.getUsername(),
+                    "/queue/messages",
+                    messageDTO);
+            log.info("Message pushed to online user: {}", receiver.getUsername());
+        } else {
+            log.info("User {} is offline, message saved but not pushed", receiver.getUsername());
+        }
+
+        return messageDTO;
     }
 
     @Transactional(readOnly = true)
@@ -90,7 +117,7 @@ public class ChatMessageService {
     public void markAsRead(Long sessionId, Long userId) {
         // Mark messages as read in message table
         chatMessageRepository.markMessagesAsRead(sessionId, userId);
-        
+
         // Reset unread count in session table
         ChatSession session = chatSessionService.getChatSession(sessionId);
         if (session.getUserA().getId().equals(userId)) {

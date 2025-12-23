@@ -19,8 +19,8 @@ import com.xsh.trueused.dto.ConversationDTO;
 import com.xsh.trueused.entity.ChatSession;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.security.user.UserPrincipal;
-import com.xsh.trueused.service.ChatSessionService;
 import com.xsh.trueused.service.ChatMessageService;
+import com.xsh.trueused.service.ChatSessionService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -72,7 +72,7 @@ public class ConversationController {
 
         dto.setLastMessage(session.getLastMessageContent());
         dto.setLastMessageTime(session.getLastMessageTime());
-        
+
         // Unread count (probably 0 for new session or whatever is in DB)
         if (session.getUserA().getId().equals(currentUser.getId())) {
             dto.setUnreadCount(session.getUnreadCountA());
@@ -81,5 +81,10 @@ public class ConversationController {
         }
 
         return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/online")
+    public ResponseEntity<java.util.Set<Long>> getOnlineUsers() {
+        return ResponseEntity.ok(com.xsh.trueused.listener.WebSocketEventListener.ONLINE_USERS.keySet());
     }
 }

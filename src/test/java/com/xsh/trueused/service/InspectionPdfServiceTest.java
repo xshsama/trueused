@@ -6,8 +6,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.xsh.trueused.dto.InspectionFlowDTO;
-import com.xsh.trueused.dto.InspectionItemResultDTO;
+import com.xsh.trueused.inspection.dto.InspectionFlowDTO;
+import com.xsh.trueused.inspection.dto.InspectionItemResultDTO;
+import com.xsh.trueused.inspection.service.InspectionPdfService;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

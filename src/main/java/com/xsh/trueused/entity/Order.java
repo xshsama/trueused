@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 import com.xsh.trueused.common.BaseEntity;
-import com.xsh.trueused.enums.OrderStatus;
+import com.xsh.trueused.order.enums.OrderStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

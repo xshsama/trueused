@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.xsh.trueused.entity.User;
-import com.xsh.trueused.repository.UserRepository;
+import com.xsh.trueused.user.repository.UserRepository;
 import com.xsh.trueused.security.user.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;

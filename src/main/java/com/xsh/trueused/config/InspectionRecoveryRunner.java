@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 
 import com.xsh.trueused.entity.Consignment;
 import com.xsh.trueused.enums.ConsignmentStatus;
-import com.xsh.trueused.repository.ConsignmentRepository;
-import com.xsh.trueused.repository.InspectionRepository;
-import com.xsh.trueused.service.InspectionService;
+import com.xsh.trueused.consignment.repository.ConsignmentRepository;
+import com.xsh.trueused.inspection.repository.InspectionRepository;
+import com.xsh.trueused.inspection.service.InspectionService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

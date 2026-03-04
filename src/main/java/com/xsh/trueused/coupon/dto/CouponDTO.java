@@ -1,0 +1,23 @@
+package com.xsh.trueused.coupon.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
+import com.xsh.trueused.enums.CouponType;
+
+import lombok.Data;
+
+@Data
+public class CouponDTO {
+    private Long id;
+    private String code;
+    private String title;
+    private String description;
+    private CouponType type;
+    private BigDecimal discountAmount;
+    private BigDecimal minSpend;
+    private Integer validDays;
+    private Boolean isActive;
+    private Instant createdAt;
+    private Instant updatedAt;
+}

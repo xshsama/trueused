@@ -2,6 +2,8 @@ package com.xsh.trueused.controller;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +27,8 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/addresses")
 public class AddressController {
+
+    private static final Logger log = LoggerFactory.getLogger(AddressController.class);
 
     private final AddressRepository addressRepository;
 
@@ -80,7 +84,7 @@ public class AddressController {
     @PutMapping("/{id}")
     public Address updateAddress(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
             @RequestBody @Valid Address addressDetails) {
-        System.out.println("Updating address " + id + " with details: " + addressDetails);
+        log.info("Updating address {} for user {}", id, principal.getId());
         Address address = addressRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (!address.getUser().getId().equals(principal.getId())) {
@@ -111,10 +115,10 @@ public class AddressController {
             address.setAreaCode(addressDetails.getAreaCode());
         }
         if (Boolean.TRUE.equals(addressDetails.getIsDefault())) {
-            System.out.println("Setting address " + id + " as default");
+            log.info("Setting address {} as default for user {}", id, principal.getId());
             addressRepository.findByUserId(principal.getId()).forEach(addr -> {
                 if (Boolean.TRUE.equals(addr.getIsDefault()) && !addr.getId().equals(id)) {
-                    System.out.println("Unsetting default status for address " + addr.getId());
+                    log.debug("Unsetting default status for address {}", addr.getId());
                     addr.setIsDefault(false);
                     addressRepository.save(addr);
                 }

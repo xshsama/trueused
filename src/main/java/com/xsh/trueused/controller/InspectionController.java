@@ -73,8 +73,7 @@ public class InspectionController {
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
         } catch (Exception e) {
-            log.error("Failed to generate PDF for inspection ID: " + id, e);
-            e.printStackTrace();
+            log.error("Failed to generate PDF for inspection ID: {}", id, e);
             // Return error message as plain text if something goes wrong, or letting the global handler handle it.
             // Returning a 500 with the error message in body.
             return ResponseEntity.internalServerError()

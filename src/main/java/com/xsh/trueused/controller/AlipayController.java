@@ -18,10 +18,12 @@ import com.xsh.trueused.service.OrderService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/alipay")
 @RequiredArgsConstructor
+@Slf4j
 public class AlipayController {
 
     private final AlipayService alipayService;
@@ -34,7 +36,7 @@ public class AlipayController {
             String form = alipayService.createPayment(alipayRequest);
             return ResponseEntity.ok(form);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Payment creation failed for outTradeNo {}", alipayRequest.getOutTradeNo(), e);
             return ResponseEntity.internalServerError().body("Payment creation failed");
         }
     }
@@ -62,32 +64,30 @@ public class AlipayController {
                 String tradeStatus = params.get("trade_status");
                 String tradeNo = params.get("trade_no"); // Alipay transaction ID
 
-                System.out.println(
-                        "Alipay notify verified. out_trade_no=" + outTradeNo + ", trade_status=" + tradeStatus);
+                log.info("Alipay notify verified. outTradeNo={}, tradeStatus={}", outTradeNo, tradeStatus);
 
                 if ("TRADE_SUCCESS".equals(tradeStatus) || "TRADE_FINISHED".equals(tradeStatus)) {
                     try {
                         Long orderId = Long.parseLong(outTradeNo);
                         orderService.handlePaymentSuccess(orderId, tradeNo);
-                        System.out.println("Order paid and updated: " + outTradeNo);
+                        log.info("Order paid and updated: {}", outTradeNo);
                         return "success";
                     } catch (NumberFormatException e) {
-                        System.err.println("Invalid order ID format: " + outTradeNo);
+                        log.warn("Invalid order ID format: {}", outTradeNo);
                         return "failure";
                     } catch (Exception e) {
-                        System.err.println("Failed to update order status: " + e.getMessage());
-                        e.printStackTrace();
+                        log.error("Failed to update order status for outTradeNo={}", outTradeNo, e);
                         // Return failure to trigger Alipay retry mechanism
                         return "failure";
                     }
                 }
                 return "success";
             } else {
-                System.out.println("Alipay notify signature verification failed.");
+                log.warn("Alipay notify signature verification failed.");
                 return "failure";
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Alipay notify handling failed", e);
             return "failure";
         }
     }

@@ -1,9 +1,5 @@
 package com.xsh.trueused.service;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import com.xsh.trueused.dto.InspectionFlowDTO;
 import com.xsh.trueused.dto.InspectionItemResultDTO;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class InspectionPdfServiceTest {
 
@@ -34,17 +32,9 @@ public class InspectionPdfServiceTest {
         items.add(item1);
         
         dto.setItems(items);
-        
-        System.out.println("Generating PDF...");
-        try (InputStream is = new ByteArrayInputStream(service.generateInspectionReportPdf(dto))) {
-            File f = new File("test_report.pdf");
-            try (FileOutputStream fos = new FileOutputStream(f)) {
-                is.transferTo(fos);
-            }
-            System.out.println("PDF generated at " + f.getAbsolutePath());
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
+
+        byte[] pdfBytes = service.generateInspectionReportPdf(dto);
+        assertTrue(pdfBytes.length > 4);
+        assertTrue(pdfBytes[0] == '%' && pdfBytes[1] == 'P' && pdfBytes[2] == 'D' && pdfBytes[3] == 'F');
     }
 }

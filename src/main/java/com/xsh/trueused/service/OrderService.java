@@ -38,6 +38,8 @@ import com.xsh.trueused.repository.OrderRepository;
 import com.xsh.trueused.repository.ProductRepository;
 import com.xsh.trueused.repository.UserCouponRepository;
 import com.xsh.trueused.repository.UserRepository;
+import com.xsh.trueused.service.order.OrderStateMachine;
+import com.xsh.trueused.service.order.OrderTransition;
 
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -79,6 +81,9 @@ public class OrderService {
 
     @Autowired
     private OrderMapper orderMapper;
+
+    @Autowired
+    private OrderStateMachine orderStateMachine;
 
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest createOrderRequest, Long buyerId) {
@@ -225,11 +230,8 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to pay for this order");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be paid");
-        }
-
-        order.setStatus(OrderStatus.PAID);
+        orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.PAY, "Order cannot be paid");
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.PAY));
         orderRepository.save(order);
 
         // 更新商品状态为已售出
@@ -255,14 +257,12 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to pay for this order");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be paid");
-        }
+        orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.PAY, "Order cannot be paid");
 
         // Deduct from buyer's wallet
         walletService.payOrder(buyerId, orderId, order.getPrice(), password);
 
-        order.setStatus(OrderStatus.PAID);
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.PAY));
         order.setPaymentTime(Instant.now());
         // order.setPaymentMethod("WALLET");
         orderRepository.save(order);
@@ -293,13 +293,13 @@ public class OrderService {
             return;
         }
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+        if (!orderStateMachine.canTransit(order.getStatus(), OrderTransition.PAY)) {
             log.warn("Order {} status is {}, cannot be paid.", orderId, order.getStatus());
             // 这里可能需要根据业务决定是否抛出异常，或者记录异常日志
             return;
         }
 
-        order.setStatus(OrderStatus.PAID);
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.PAY));
         order.setPaymentTime(Instant.now());
         order.setTransactionId(transactionId);
         orderRepository.save(order);
@@ -327,9 +327,7 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to ship this order");
         }
 
-        if (order.getStatus() != OrderStatus.PAID) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be shipped");
-        }
+        orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.SHIP, "Order cannot be shipped");
 
         // 获取快递公司，如果请求中没有提供则使用默认值
         String expressCompany = (shipRequest != null && shipRequest.getExpressCompany() != null)
@@ -362,7 +360,7 @@ public class OrderService {
         order.setExpressCode(shippingInfo.getExpressCode());
         order.setShippedAt(shippingInfo.getShippedAt());
         order.setEstimatedDeliveryTime(shippingInfo.getEstimatedDeliveryTime());
-        order.setStatus(OrderStatus.SHIPPED);
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.SHIP));
 
         orderRepository.save(order);
 
@@ -423,11 +421,9 @@ public class OrderService {
                     "You are not authorized to confirm this order's delivery");
         }
 
-        if (order.getStatus() != OrderStatus.SHIPPED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order delivery cannot be confirmed");
-        }
-
-        order.setStatus(OrderStatus.COMPLETED);
+        orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.CONFIRM_DELIVERY,
+                "Order delivery cannot be confirmed");
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.CONFIRM_DELIVERY));
         order.setDeliveredAt(Instant.now());
         orderRepository.save(order);
 
@@ -444,8 +440,7 @@ public class OrderService {
 
         // TODO: Archive the product after order completion
         Product product = order.getProduct();
-        System.out
-                .println("Order " + order.getId() + " completed. Product " + product.getId() + " should be archived.");
+        log.info("Order {} completed. Product {} should be archived.", order.getId(), product.getId());
 
         return getOrderById(orderId);
     }
@@ -460,16 +455,15 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to cancel this order");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT && order.getStatus() != OrderStatus.PAID) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be cancelled at its current stage");
-        }
+        orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.CANCEL,
+                "Order cannot be cancelled at its current stage");
 
         // 已付款订单取消时，退款并释放买家冻结资金
         if (order.getStatus() == OrderStatus.PAID) {
             walletService.refund(order.getBuyer().getId(), orderId, order.getPrice());
         }
 
-        order.setStatus(OrderStatus.CANCELLED);
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.CANCEL));
         orderRepository.save(order);
 
         // 将商品状态恢复为可购买
@@ -499,11 +493,9 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to refund this order");
         }
 
-        if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.SHIPPED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be refunded at its current stage");
-        }
-
-        order.setStatus(OrderStatus.REFUNDED);
+        orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.REFUND,
+                "Order cannot be refunded at its current stage");
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.REFUND));
         orderRepository.save(order);
 
         // Refund to buyer
@@ -530,8 +522,13 @@ public class OrderService {
                 expirationTime);
 
         for (Order order : expiredOrders) {
+            if (!orderStateMachine.canTransit(order.getStatus(), OrderTransition.EXPIRE)) {
+                log.info("Skip expiring order {} due to current status {}", order.getId(), order.getStatus());
+                continue;
+            }
+
             log.info("Cancelling expired order: {}", order.getId());
-            order.setStatus(OrderStatus.CANCELLED);
+            order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.EXPIRE));
 
             // 恢复商品库存/状态
             productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);

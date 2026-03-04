@@ -3,31 +3,43 @@ package com.xsh.trueused.mapper;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
-
 import com.xsh.trueused.dto.ReviewDTO;
 import com.xsh.trueused.entity.Review;
 import com.xsh.trueused.entity.ReviewImage;
 import com.xsh.trueused.util.CloudinaryUrlHelper;
 
-@Mapper
-public interface ReviewMapper {
-    ReviewMapper INSTANCE = Mappers.getMapper(ReviewMapper.class);
+public final class ReviewMapper {
+    public static final ReviewMapper INSTANCE = new ReviewMapper();
 
-    @Mapping(source = "order.id", target = "orderId")
-    @Mapping(source = "product.id", target = "productId")
-    @Mapping(source = "product.title", target = "productTitle")
-    @Mapping(source = "product.price", target = "price")
-    @Mapping(target = "productImage", expression = "java(getProductImage(review))")
-    @Mapping(source = "buyer.id", target = "buyerId")
-    @Mapping(source = "buyer.username", target = "buyerName")
-    @Mapping(source = "buyer.avatarUrl", target = "buyerAvatar")
-    @Mapping(target = "images", expression = "java(getReviewImages(review))")
-    ReviewDTO toDTO(Review review);
+    private ReviewMapper() {
+    }
 
-    default String getProductImage(Review review) {
+    public ReviewDTO toDTO(Review review) {
+        if (review == null) {
+            return null;
+        }
+
+        ReviewDTO dto = new ReviewDTO();
+        dto.setId(review.getId());
+        dto.setOrderId(review.getOrder() != null ? review.getOrder().getId() : null);
+        dto.setProductId(review.getProduct() != null ? review.getProduct().getId() : null);
+        dto.setProductTitle(review.getProduct() != null ? review.getProduct().getTitle() : null);
+        dto.setPrice(review.getProduct() != null ? review.getProduct().getPrice() : null);
+        dto.setProductImage(getProductImage(review));
+        dto.setBuyerId(review.getBuyer() != null ? review.getBuyer().getId() : null);
+        dto.setBuyerName(review.getBuyer() != null ? review.getBuyer().getUsername() : null);
+        dto.setBuyerAvatar(review.getBuyer() != null ? review.getBuyer().getAvatarUrl() : null);
+        dto.setRating(review.getRating());
+        dto.setContent(review.getContent());
+        dto.setIsAnonymous(review.getIsAnonymous());
+        dto.setSellerReply(review.getSellerReply());
+        dto.setSellerReplyAt(review.getSellerReplyAt());
+        dto.setCreatedAt(review.getCreatedAt());
+        dto.setImages(getReviewImages(review));
+        return dto;
+    }
+
+    private String getProductImage(Review review) {
         if (review.getProduct() != null && review.getProduct().getImages() != null
                 && !review.getProduct().getImages().isEmpty()) {
             return CloudinaryUrlHelper.getUrl(review.getProduct().getImages().get(0).getImageKey());
@@ -35,7 +47,7 @@ public interface ReviewMapper {
         return null;
     }
 
-    default List<String> getReviewImages(Review review) {
+    private List<String> getReviewImages(Review review) {
         if (review.getImages() != null) {
             return review.getImages().stream()
                     .map(ReviewImage::getUrl)

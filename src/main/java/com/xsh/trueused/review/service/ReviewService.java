@@ -68,25 +68,25 @@ public class ReviewService {
         }
 
         Review savedReview = reviewRepository.save(review);
-        return ReviewMapper.INSTANCE.toDTO(savedReview);
+        return ReviewMapper.toDTO(savedReview);
     }
 
     @Transactional(readOnly = true)
     public Page<ReviewDTO> getProductReviews(Long productId, Pageable pageable) {
         return (Page<ReviewDTO>) reviewRepository.findByProductId(productId, pageable)
-                .map(ReviewMapper.INSTANCE::toDTO);
+                .map(ReviewMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
     public Page<ReviewDTO> getSellerReviews(Long sellerId, Pageable pageable) {
         return (Page<ReviewDTO>) reviewRepository.findBySellerId(sellerId, pageable)
-                .map(ReviewMapper.INSTANCE::toDTO);
+                .map(ReviewMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
     public List<ReviewDTO> getMyReviews(Long buyerId) {
         return reviewRepository.findByBuyerId(buyerId).stream()
-                .map(ReviewMapper.INSTANCE::toDTO)
+                .map(ReviewMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -103,6 +103,6 @@ public class ReviewService {
         review.setSellerReplyAt(Instant.now());
 
         Review savedReview = reviewRepository.save(review);
-        return ReviewMapper.INSTANCE.toDTO(savedReview);
+        return ReviewMapper.toDTO(savedReview);
     }
 }

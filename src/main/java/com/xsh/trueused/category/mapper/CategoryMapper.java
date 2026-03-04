@@ -8,6 +8,9 @@ public final class CategoryMapper {
     }
 
     public static CategoryDTO toDTO(Category c) {
+        if (c == null) {
+            return null;
+        }
         return new CategoryDTO(c.getId(), c.getName(), c.getParent() == null ? null : c.getParent().getId(),
                 c.getSlug(), c.getPath(), c.getStatus());
     }

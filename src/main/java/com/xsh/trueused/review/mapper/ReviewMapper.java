@@ -9,12 +9,10 @@ import com.xsh.trueused.entity.ReviewImage;
 import com.xsh.trueused.util.CloudinaryUrlHelper;
 
 public final class ReviewMapper {
-    public static final ReviewMapper INSTANCE = new ReviewMapper();
-
     private ReviewMapper() {
     }
 
-    public ReviewDTO toDTO(Review review) {
+    public static ReviewDTO toDTO(Review review) {
         if (review == null) {
             return null;
         }
@@ -39,7 +37,7 @@ public final class ReviewMapper {
         return dto;
     }
 
-    private String getProductImage(Review review) {
+    private static String getProductImage(Review review) {
         if (review.getProduct() != null && review.getProduct().getImages() != null
                 && !review.getProduct().getImages().isEmpty()) {
             return CloudinaryUrlHelper.getUrl(review.getProduct().getImages().get(0).getImageKey());
@@ -47,7 +45,7 @@ public final class ReviewMapper {
         return null;
     }
 
-    private List<String> getReviewImages(Review review) {
+    private static List<String> getReviewImages(Review review) {
         if (review.getImages() != null) {
             return review.getImages().stream()
                     .map(ReviewImage::getUrl)

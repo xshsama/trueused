@@ -9,6 +9,9 @@ public final class FavoriteMapper {
     }
 
     public static FavoriteDTO toDTO(Favorite f) {
+        if (f == null) {
+            return null;
+        }
         return new FavoriteDTO(
                 f.getId(),
                 f.getProduct() != null ? f.getProduct().getId() : null,

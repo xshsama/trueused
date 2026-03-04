@@ -15,6 +15,9 @@ public final class UserMapper {
     }
 
     public static UserDTO toDTO(User user, Integer couponCount) {
+        if (user == null) {
+            return null;
+        }
         return new UserDTO(
                 user.getId(),
                 user.getUsername(),

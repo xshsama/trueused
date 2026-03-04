@@ -2,7 +2,6 @@ package com.xsh.trueused.order.mapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -14,13 +13,15 @@ import com.xsh.trueused.address.mapper.AddressMapper;
 import com.xsh.trueused.product.mapper.ProductMapper;
 import com.xsh.trueused.user.mapper.UserMapper;
 
+import lombok.RequiredArgsConstructor;
+
 @Component
+@RequiredArgsConstructor
 public class OrderMapper {
 
     private static final Logger log = LoggerFactory.getLogger(OrderMapper.class);
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
     public OrderDTO toDTO(Order order) {
         if (order == null)
@@ -46,8 +47,7 @@ public class OrderMapper {
         }
 
         dto.setProduct(ProductMapper.enrich(productDTO));
-        // map address using AddressMapper if available
-        dto.setAddress(AddressMapper.INSTANCE == null ? null : AddressMapper.INSTANCE.toDTO(order.getAddress()));
+        dto.setAddress(AddressMapper.toDTO(order.getAddress()));
         dto.setPrice(order.getPrice());
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getCreatedAt());

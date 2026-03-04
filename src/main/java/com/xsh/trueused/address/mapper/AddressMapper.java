@@ -4,12 +4,10 @@ import com.xsh.trueused.address.dto.AddressDTO;
 import com.xsh.trueused.entity.Address;
 
 public final class AddressMapper {
-    public static final AddressMapper INSTANCE = new AddressMapper();
-
     private AddressMapper() {
     }
 
-    public AddressDTO toDTO(Address address) {
+    public static AddressDTO toDTO(Address address) {
         if (address == null) {
             return null;
         }

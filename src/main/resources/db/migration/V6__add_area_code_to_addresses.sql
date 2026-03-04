@@ -1,1 +1,0 @@
-alter table addresses add area_code varchar(20);

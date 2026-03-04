@@ -166,7 +166,9 @@ public class UsersController {
 
                 long unreadMessages = chatMessageRepository.countByReceiverIdAndIsReadFalse(sellerId);
 
-                Long totalViews = productRepository.sumViewsBySellerId(sellerId);
+                Long totalViews = productRepository.sumViewsBySellerIdAndStatusIn(
+                                sellerId,
+                                java.util.Arrays.asList(ProductStatus.ON_SALE, ProductStatus.LOCKED, ProductStatus.SOLD));
                 if (totalViews == null)
                         totalViews = 0L;
 

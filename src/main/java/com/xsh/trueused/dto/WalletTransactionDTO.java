@@ -11,9 +11,12 @@ import lombok.Data;
 @Data
 public class WalletTransactionDTO {
     private Long id;
+    private Long walletId;
+    private Long userId;
     private BigDecimal amount;
     private WalletTransactionType type;
     private Long orderId;
+    private String bizNo;
     private WalletTransactionStatus status;
     private String remark;
     private LocalDateTime createdAt;

@@ -73,13 +73,13 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public Page<ReviewDTO> getProductReviews(Long productId, Pageable pageable) {
-        return reviewRepository.findByProductId(productId, pageable)
+        return (Page<ReviewDTO>) reviewRepository.findByProductId(productId, pageable)
                 .map(ReviewMapper.INSTANCE::toDTO);
     }
 
     @Transactional(readOnly = true)
     public Page<ReviewDTO> getSellerReviews(Long sellerId, Pageable pageable) {
-        return reviewRepository.findBySellerId(sellerId, pageable)
+        return (Page<ReviewDTO>) reviewRepository.findBySellerId(sellerId, pageable)
                 .map(ReviewMapper.INSTANCE::toDTO);
     }
 

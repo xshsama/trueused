@@ -3,6 +3,8 @@ package com.xsh.trueused.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import com.xsh.trueused.enums.CouponType;
+
 import lombok.Data;
 
 @Data
@@ -11,6 +13,7 @@ public class CouponDTO {
     private String code;
     private String title;
     private String description;
+    private CouponType type;
     private BigDecimal discountAmount;
     private BigDecimal minSpend;
     private Integer validDays;

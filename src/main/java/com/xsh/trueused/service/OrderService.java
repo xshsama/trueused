@@ -205,7 +205,8 @@ public class OrderService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return orderRepository.findAll(spec, pageable).map(orderMapper::toDTO);
+        Page<Order> orders = orderRepository.findAll(spec, pageable);
+        return (Page<OrderDTO>) orders.map((Order order) -> orderMapper.toDTO(order));
     }
 
     @Transactional(readOnly = true)
@@ -431,7 +432,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // Transfer money to seller
-        walletService.transferToSeller(order.getSeller().getId(), orderId, order.getPrice());
+        walletService.transferToSeller(order.getSeller().getId(), order.getBuyer().getId(), orderId, order.getPrice());
 
         // 通知卖家订单已完成
         notificationService.createNotification(
@@ -463,10 +464,9 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be cancelled at its current stage");
         }
 
-        // 如果是卖家取消已付款的订单，理论上应该有退款流程，这里简化处理
-        if (order.getSeller().getId().equals(userId) && order.getStatus() == OrderStatus.PAID) {
-            // TODO: Implement refund logic here
-            System.out.println("Refund process should be triggered for order: " + orderId);
+        // 已付款订单取消时，退款并释放买家冻结资金
+        if (order.getStatus() == OrderStatus.PAID) {
+            walletService.refund(order.getBuyer().getId(), orderId, order.getPrice());
         }
 
         order.setStatus(OrderStatus.CANCELLED);

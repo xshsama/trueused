@@ -61,10 +61,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/alipay/notify").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/orders/**", "/api/favorites/**", "/api/users/**",
-                                "/api/conversations/**", "/api/cloudinary/**", "/api/consignments/**")
+                                "/api/conversations/**", "/api/cloudinary/**", "/api/consignments/**",
+                                "/api/inspections/**", "/api/messages/**", "/api/wallet/**")
                         .authenticated()
                         .anyRequest().authenticated())
-                .exceptionHandling(ex -> ex
+                .exceptionHandling(ex -> ex 
                         .authenticationEntryPoint(authenticationEntryPoint())
                         .accessDeniedHandler(accessDeniedHandler()))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

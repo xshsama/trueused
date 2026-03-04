@@ -28,6 +28,11 @@ public class GlobalResponseAdvice implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
             Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request,
             ServerHttpResponse response) {
+        // Prevent wrapping of PDF/files (byte arrays or Resources)
+        if (body instanceof byte[] || body instanceof org.springframework.core.io.Resource) {
+            return body;
+        }
+        
         if (body == null) {
             return ApiResponse.success(null);
         }

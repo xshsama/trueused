@@ -191,6 +191,13 @@ public class InspectionService {
     }
 
     @Transactional(readOnly = true)
+    public InspectionFlowDTO getInspectionById(Long inspectionId) {
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new RuntimeException("Inspection not found with id " + inspectionId));
+        return toInspectionFlowDTO(inspection);
+    }
+
+    @Transactional(readOnly = true)
     public InspectionFlowDTO getInspectionFlowByConsignment(Long consignmentId) {
         Inspection inspection = inspectionRepository.findByConsignmentId(consignmentId)
                 .orElseThrow(() -> new RuntimeException("Inspection not found for consignment " + consignmentId));
@@ -231,7 +238,7 @@ public class InspectionService {
             dto.setOrderId(inspection.getOrder().getId());
         }
         dto.setStatus(inspection.getStatus());
-        dto.setResultSummary(inspection.getResultSummary());
+        dto.setResultSummary(sanitizeSummary(inspection.getResultSummary()));
         dto.setCreatedAt(inspection.getCreatedAt());
         dto.setUpdatedAt(inspection.getUpdatedAt());
 
@@ -290,6 +297,68 @@ public class InspectionService {
         return "A";
     }
 
+    private String generateSmartSummary(Inspection inspection) {
+        String categoryName = inspectionRepository.findCategoryNameByInspectionId(inspection.getId()).orElse("");
+
+        String grade = determineGrade(inspection);
+        
+        // 1. Identify Type
+        String cat = (categoryName != null) ? categoryName.toLowerCase() : "";
+        String type = "general";
+        
+        if (cat.contains("手机") || cat.contains("iphone") || cat.contains("ipad") || cat.contains("mac") || cat.contains("电脑") || cat.contains("数码")) {
+            type = "digital";
+        } else if (cat.contains("衣") || cat.contains("服装") || cat.contains("鞋") || cat.contains("包") || cat.contains("表") || cat.contains("配饰")) {
+            type = "fashion";
+        } else if (cat.contains("书") || cat.contains("绘本")) {
+            type = "book";
+        }
+
+        // 2. Grade Intro
+        String gradeText;
+        switch (grade) {
+            case "S": gradeText = "成色完美，整体不仅几乎全新，且未见明显使用痕迹"; break;
+            case "A": gradeText = "成色优秀，机身仅有极细微生活痕迹，整体观感与手感俱佳。"; break;
+            case "B": gradeText = "成色良好，存在可见使用痕迹或轻微磕碰，但不影响核心功能体验，性价比较高。"; break;
+            case "C": gradeText = "成色一般，有明显磨损或功能性小瑕疵，建议仔细查看实拍图。"; break;
+            case "X": gradeText = "未通过质检，存在严重功能故障或不符合平台收录标准。"; break;
+            default: gradeText = "商品状态符合发布描述，整体状况稳定。";
+        }
+
+        // 3. Category Specific Text
+        StringBuilder text = new StringBuilder();
+        if ("digital".equals(type)) {
+            text.append("经 TrueUsed 数码实验室 32 项深度检测，该设备").append(gradeText).append(" ");
+            text.append("屏幕显示通透无老化，触控灵敏，核心主板及各项传感器运行稳定。");
+        } else if ("fashion".equals(type)) {
+            text.append("经 TrueUsed 资深鉴定师查验，该商品").append(gradeText).append(" ");
+            text.append("整体版型保持良好，面料无明显变色，五金光泽度自然，走线细节完好。");
+        } else if ("book".equals(type)) {
+            text.append("经 TrueUsed 图书鉴别团队审核，该书").append(gradeText).append(" ");
+            text.append("书页无明显折痕或笔记，书脊完好，装订紧实，阅读体验极佳。");
+        } else {
+            text.append("经 TrueUsed 官方多重质检，该商品").append(gradeText).append(" ");
+            text.append("各项功能正常，外观与描述相符，符合平台严选标准。");
+        }
+        
+        // 4. Issues Note
+        List<InspectionResult> issues = inspectionResultRepository.findByInspectionId(inspection.getId()).stream()
+                .filter(r -> !"PASSED".equals(r.getStatus()))
+                .collect(Collectors.toList());
+
+        if (!issues.isEmpty()) {
+            text.append(" 需要注意的是，质检工程师发现以下细节：");
+            List<String> issueTexts = issues.stream()
+                .map(i -> i.getItem().getName() + (i.getNotes() != null && !i.getNotes().isEmpty() ? "存在" + i.getNotes() : "异常"))
+                .collect(Collectors.toList());
+            text.append(String.join("、", issueTexts)).append("。");
+        } else {
+            text.append(" 本次检测未发现功能性故障或隐形暗病，请放心使用。");
+        }
+
+        return text.toString();
+    }
+
     @Async
     public void simulateInspectionProcess(Long inspectionId) {
         // Use self-reference to invoke transactional methods via proxy
@@ -320,7 +389,12 @@ public class InspectionService {
 
             // Complete inspection
             self.updateInspectionStatus(inspectionId, "COMPLETED");
-            self.updateInspectionSummary(inspectionId, "All checks passed. Device is in good condition.");
+            
+            // Generate Smart Summary (Chinese)
+            Inspection updatedInspection = inspectionRepository.findById(inspectionId).orElseThrow();
+            String smartSummary = generateSmartSummary(updatedInspection);
+            self.updateInspectionSummary(inspectionId, smartSummary);
+            
             log.info("Inspection simulation completed for inspection: {}", inspectionId);
 
             // Notify user
@@ -333,22 +407,30 @@ public class InspectionService {
             }
 
             if (userId != null) {
-                notificationService.createNotification(
-                        userId,
-                        "验货完成",
-                        "您的商品验货已完成，结果：通过。",
-                        "INSPECTION_COMPLETED",
-                        inspectionId);
+                try {
+                    notificationService.createNotification(
+                            userId,
+                            "验货完成",
+                            "您的商品验货已完成，结果：通过。",
+                            "INSPECTION_COMPLETED",
+                            inspectionId);
+                } catch (Exception ex) {
+                    log.error("Failed to send inspection success notification for inspection {}", inspectionId, ex);
+                }
             }
 
-            // Handle Consignment Success
+            // Post-processing should not rewrite successful inspection into FAILED.
             if (inspection.getConsignment() != null) {
-                self.handleConsignmentInspectionSuccess(inspection.getConsignment().getId());
+                try {
+                    self.handleConsignmentInspectionSuccess(inspection.getConsignment().getId());
+                } catch (Exception ex) {
+                    log.error("Failed to handle consignment success for inspection {}", inspectionId, ex);
+                }
             }
 
         } catch (Exception e) {
             log.error("Error during inspection simulation", e);
-            self.updateInspectionStatus(inspectionId, "FAILED");
+            self.markInspectionFailedWithDetails(inspectionId, e);
 
             // Notify user of failure
             try {
@@ -396,6 +478,49 @@ public class InspectionService {
         Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
         inspection.setResultSummary(summary);
         inspectionRepository.save(inspection);
+    }
+
+    @Transactional
+    public void markInspectionFailedWithDetails(Long inspectionId, Exception e) {
+        Inspection inspection = inspectionRepository.findById(inspectionId).orElseThrow();
+        inspection.setStatus("FAILED");
+
+        String reason = mapFailureReason(e);
+        String summary = "验货流程中断，系统已记录异常。未通过原因：" + reason;
+        inspection.setResultSummary(summary);
+        inspectionRepository.save(inspection);
+
+        List<InspectionResult> results = inspectionResultRepository.findByInspectionId(inspectionId);
+        for (InspectionResult result : results) {
+            if ("PENDING".equals(result.getStatus()) || result.getStatus() == null) {
+                result.setStatus("FAILED");
+                result.setNotes("未完成检测：流程中断");
+                result.setUpdatedAt(Instant.now());
+            }
+        }
+        inspectionResultRepository.saveAll(results);
+    }
+
+    private String mapFailureReason(Exception e) {
+        if (e == null || e.getMessage() == null || e.getMessage().isBlank()) {
+            return "系统处理异常，请联系客服复检";
+        }
+
+        String message = e.getMessage();
+        if (message.contains("Could not initialize proxy") || message.contains("no session")) {
+            return "检测流程异常，请联系客服复检";
+        }
+        return message;
+    }
+
+    private String sanitizeSummary(String summary) {
+        if (summary == null || summary.isBlank()) {
+            return summary;
+        }
+        if (summary.contains("Could not initialize proxy") || summary.contains("no session")) {
+            return "验货流程中断，系统已记录异常。未通过原因：检测流程异常，请联系客服复检";
+        }
+        return summary;
     }
 
     @Transactional

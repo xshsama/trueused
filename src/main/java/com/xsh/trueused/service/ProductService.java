@@ -22,11 +22,14 @@ import com.xsh.trueused.entity.Category;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.ProductImage;
 import com.xsh.trueused.entity.User;
+import com.xsh.trueused.entity.UserCoupon;
+import com.xsh.trueused.enums.CouponType;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.mapper.ProductMapper;
 import com.xsh.trueused.repository.CategoryRepository;
 import com.xsh.trueused.repository.FavoriteRepository;
 import com.xsh.trueused.repository.ProductRepository;
+import com.xsh.trueused.repository.UserCouponRepository;
 import com.xsh.trueused.repository.UserRepository;
 
 import jakarta.persistence.criteria.Predicate;
@@ -44,6 +47,7 @@ public class ProductService {
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final UserCouponRepository userCouponRepository;
 
     private static final String KEY_STATIC = "product:static:";
     private static final String KEY_STATUS = "product:status:";
@@ -114,15 +118,39 @@ public class ProductService {
         }
 
         // Check if already polished today
-        java.time.LocalDate lastUpdateDate = java.time.LocalDate.ofInstant(p.getUpdatedAt(),
-                java.time.ZoneId.systemDefault());
+        java.time.Instant lastPolished = p.getLastPolishedAt();
         java.time.LocalDate today = java.time.LocalDate.now();
 
-        if (lastUpdateDate.equals(today)) {
-            throw new IllegalStateException("每天只能擦亮一次");
+        if (lastPolished != null) {
+            java.time.LocalDate lastPolishedDate = java.time.LocalDate.ofInstant(lastPolished,
+                    java.time.ZoneId.systemDefault());
+            if (lastPolishedDate.equals(today)) {
+                throw new IllegalStateException("每天只能擦亮一次");
+            }
         }
 
-        p.setUpdatedAt(java.time.Instant.now());
+        // Check and consume promotion coupon
+        java.util.List<UserCoupon> coupons = userCouponRepository.findByUserIdAndCoupon_TypeAndIsUsedFalse(sellerId,
+                CouponType.PROMOTION);
+        UserCoupon validCoupon = null;
+        java.time.Instant now = java.time.Instant.now();
+        for (UserCoupon coupon : coupons) {
+            if (coupon.getValidUntil() == null || coupon.getValidUntil().isAfter(now)) {
+                validCoupon = coupon;
+                break;
+            }
+        }
+
+        if (validCoupon == null) {
+            throw new IllegalArgumentException("需要推广券才能擦亮商品");
+        }
+
+        validCoupon.setIsUsed(true);
+        validCoupon.setUsedAt(now);
+        userCouponRepository.save(validCoupon);
+
+        p.setLastPolishedAt(now);
+        p.setUpdatedAt(now); // Bump to top
         productRepository.save(p);
 
         // Invalidate cache
@@ -244,10 +272,7 @@ public class ProductService {
                 String viewsStr = redisTemplate.opsForValue().get(KEY_VIEWS + id);
                 if (viewsStr != null) {
                     Long views = Long.valueOf(viewsStr);
-                    productRepository.findById(id).ifPresent(p -> {
-                        p.setViewsCount(views);
-                        productRepository.save(p);
-                    });
+                    productRepository.updateViewsCount(id, views);
                 }
             } catch (Exception e) {
                 log.error("Failed to sync views for product " + idStr, e);
@@ -314,7 +339,8 @@ public class ProductService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO).map(ProductMapper::enrich);
+        Page<Product> products = productRepository.findAll(spec, pageable);
+        return (Page<ProductDTO>) products.map((Product p) -> ProductMapper.toDTO(p)).map((ProductDTO dto) -> ProductMapper.enrich(dto));
     }
 
     private Sort resolveSort(String sort) {
@@ -450,6 +476,7 @@ public class ProductService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return productRepository.findAll(spec, pageable).map(ProductMapper::toDTO).map(ProductMapper::enrich);
+        Page<Product> products = productRepository.findAll(spec, pageable);
+        return (Page<ProductDTO>) products.map((Product p) -> ProductMapper.toDTO(p)).map((ProductDTO dto) -> ProductMapper.enrich(dto));
     }
 }

@@ -38,7 +38,7 @@ public class InspectionRecoveryRunner implements ApplicationRunner {
 
         for (Consignment c : stuckConsignments) {
             inspectionRepository.findByConsignmentId(c.getId()).ifPresent(inspection -> {
-                if (!"COMPLETED".equals(inspection.getStatus())) {
+                if ("PENDING".equals(inspection.getStatus()) || "IN_PROGRESS".equals(inspection.getStatus())) {
                     log.info("Resuming inspection for consignment {}", c.getId());
                     inspectionService.simulateInspectionProcess(inspection.getId());
                 }

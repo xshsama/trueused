@@ -44,6 +44,9 @@ public class WalletTransaction {
     @Column(name = "order_id")
     private Long orderId;
 
+    @Column(name = "biz_no", length = 64, unique = true)
+    private String bizNo;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private WalletTransactionStatus status;

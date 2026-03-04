@@ -71,6 +71,7 @@ public class CouponController {
         dto.setCode(coupon.getCode());
         dto.setTitle(coupon.getTitle());
         dto.setDescription(coupon.getDescription());
+        dto.setType(coupon.getType());
         dto.setDiscountAmount(coupon.getDiscountAmount());
         dto.setMinSpend(coupon.getMinSpend());
         dto.setValidDays(coupon.getValidDays());

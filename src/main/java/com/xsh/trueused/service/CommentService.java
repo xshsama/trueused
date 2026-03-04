@@ -68,13 +68,13 @@ public class CommentService {
 
         @Transactional(readOnly = true)
         public Page<CommentDTO> getProductComments(Long productId, Pageable pageable) {
-                return commentRepository.findByProductId(productId, pageable)
+                return (Page<CommentDTO>) commentRepository.findByProductId(productId, pageable)
                                 .map(this::toDTO);
         }
 
         @Transactional(readOnly = true)
         public Page<CommentDTO> getSellerComments(Long sellerId, Pageable pageable) {
-                return commentRepository.findByTargetUserId(sellerId, pageable)
+                return (Page<CommentDTO>) commentRepository.findByTargetUserId(sellerId, pageable)
                                 .map(this::toDTO);
         }
 

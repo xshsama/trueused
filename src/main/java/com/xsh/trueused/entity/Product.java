@@ -100,6 +100,9 @@ public class Product extends BaseEntity {
         @Column(name = "is_deleted", nullable = false)
         private Boolean isDeleted = Boolean.FALSE;
 
+        @Column(name = "last_polished_at")
+        private java.time.Instant lastPolishedAt;
+
         @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
         private List<ProductImage> images = new ArrayList<>();
 }

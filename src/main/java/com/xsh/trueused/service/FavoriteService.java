@@ -52,7 +52,7 @@ public class FavoriteService {
     @Transactional(readOnly = true)
     public Page<FavoriteDTO> list(Long userId, int page, int size) {
         User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-        return favoriteRepository.findByUser(user, PageRequest.of(page, size))
+        return (Page<FavoriteDTO>) favoriteRepository.findByUser(user, PageRequest.of(page, size))
                 .map(FavoriteMapper::toDTO);
     }
 }

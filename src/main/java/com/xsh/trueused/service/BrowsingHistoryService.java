@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.util.Streamable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,7 +44,7 @@ public class BrowsingHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public Page<BrowsingHistoryDTO> getUserHistory(Long userId, Pageable pageable) {
+    public Streamable<Object> getUserHistory(Long userId, Pageable pageable) {
         return browsingHistoryRepository.findByUserIdOrderByViewedAtDesc(userId, pageable)
                 .map(history -> new BrowsingHistoryDTO(
                         history.getId(),

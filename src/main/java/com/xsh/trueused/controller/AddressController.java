@@ -20,6 +20,8 @@ import com.xsh.trueused.entity.User;
 import com.xsh.trueused.repository.AddressRepository;
 import com.xsh.trueused.security.user.UserPrincipal;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/addresses")
 public class AddressController {
@@ -59,7 +61,16 @@ public class AddressController {
     }
 
     @PostMapping
-    public Address createAddress(@AuthenticationPrincipal UserPrincipal principal, @RequestBody Address address) {
+    public Address createAddress(@AuthenticationPrincipal UserPrincipal principal, @RequestBody @Valid Address address) {
+        if (Boolean.TRUE.equals(address.getIsDefault())) {
+            List<Address> addresses = addressRepository.findByUserId(principal.getId());
+            for (Address addr : addresses) {
+                if (Boolean.TRUE.equals(addr.getIsDefault())) {
+                    addr.setIsDefault(false);
+                    addressRepository.save(addr);
+                }
+            }
+        }
         User user = new User();
         user.setId(principal.getId());
         address.setUser(user);
@@ -68,7 +79,7 @@ public class AddressController {
 
     @PutMapping("/{id}")
     public Address updateAddress(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
-            @RequestBody Address addressDetails) {
+            @RequestBody @Valid Address addressDetails) {
         System.out.println("Updating address " + id + " with details: " + addressDetails);
         Address address = addressRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));

@@ -18,6 +18,7 @@ public record ProductCreateRequest(
                 @DecimalMin("0.0") BigDecimal originalPrice,
                 @Size(max = 3) String currency,
                 ProductCondition condition,
+                ProductCondition sellerClaimCondition,
                 Long categoryId,
                 @Size(max = 100) String locationText,
                 @Size(max = 20) String shippingPayer,

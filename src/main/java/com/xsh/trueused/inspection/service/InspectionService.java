@@ -291,12 +291,45 @@ public class InspectionService {
         if ("FAILED".equals(inspection.getStatus())) {
             return "X";
         }
-        // Simple logic: if summary contains "good", return S, else A
-        String summary = inspection.getResultSummary();
-        if (summary != null && summary.contains("good")) {
-            return "S";
+
+        Product relatedProduct = null;
+        if (inspection.getConsignment() != null) {
+            relatedProduct = inspection.getConsignment().getProduct();
+        } else if (inspection.getOrder() != null) {
+            relatedProduct = inspection.getOrder().getProduct();
         }
-        return "A";
+
+        long issueCount = inspectionResultRepository.findByInspectionId(inspection.getId()).stream()
+                .filter(result -> !"PASSED".equalsIgnoreCase(result.getStatus()))
+                .count();
+
+        if (issueCount >= 3) {
+            return "C";
+        }
+        if (issueCount == 2) {
+            return "B";
+        }
+        if (issueCount == 1) {
+            return "A";
+        }
+
+        if (relatedProduct == null || relatedProduct.getCondition() == null) {
+            return "A";
+        }
+
+        switch (relatedProduct.getCondition()) {
+            case NEW:
+            case LIKE_NEW:
+            return "S";
+            case GOOD:
+                return "A";
+            case FAIR:
+                return "B";
+            case POOR:
+                return "C";
+            default:
+                return "A";
+        }
     }
 
     private String generateSmartSummary(Inspection inspection) {
@@ -532,6 +565,10 @@ public class InspectionService {
         consignmentRepository.save(consignment);
 
         if (consignment.getProduct() != null) {
+            inspectionRepository.findByConsignmentId(consignmentId)
+                    .ifPresent(inspection -> productService.updateInspectionGrade(
+                            consignment.getProduct().getId(),
+                            determineGrade(inspection)));
             productService.updateProductStatus(consignment.getProduct().getId(), ProductStatus.ON_SALE);
         }
     }
@@ -543,6 +580,7 @@ public class InspectionService {
         consignmentRepository.save(consignment);
 
         if (consignment.getProduct() != null) {
+            productService.updateInspectionGrade(consignment.getProduct().getId(), "X");
             productService.updateProductStatus(consignment.getProduct().getId(), ProductStatus.OFF_SHELF);
         }
     }

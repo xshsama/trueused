@@ -68,6 +68,9 @@ public class Product extends BaseEntity {
         @Column(name = "item_condition", length = 20)
         private ProductCondition condition;
 
+        @Column(name = "inspection_grade", length = 10)
+        private String inspectionGrade;
+
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "category_id")
         private Category category;

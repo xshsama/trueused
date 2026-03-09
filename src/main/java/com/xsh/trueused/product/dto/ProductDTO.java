@@ -20,6 +20,8 @@ public record ProductDTO(
                 String currency,
                 ProductStatus status,
                 ProductCondition condition,
+                ProductCondition sellerClaimCondition,
+                String inspectionGrade,
                 ProductTradeModel tradeModel,
                 UserDTO seller,
                 CategoryDTO category,

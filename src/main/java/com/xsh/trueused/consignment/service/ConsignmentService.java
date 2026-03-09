@@ -19,6 +19,7 @@ import com.xsh.trueused.entity.ProductImage;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.inspection.service.InspectionService;
 import com.xsh.trueused.enums.ConsignmentStatus;
+import com.xsh.trueused.enums.ProductCondition;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.enums.ProductTradeModel;
 import com.xsh.trueused.product.mapper.ProductMapper;
@@ -59,6 +60,7 @@ public class ConsignmentService {
         product.setPrice(req.getExpectedPrice());
         product.setOriginalPrice(req.getOriginalPrice());
         product.setTradeModel(ProductTradeModel.OFFICIAL_INSPECTION);
+        product.setCondition(resolveSellerClaimCondition(req));
 
         // 无论是否有物流单号，商品状态在寄售初期都应为 PENDING
         product.setStatus(ProductStatus.PENDING);
@@ -203,5 +205,9 @@ public class ConsignmentService {
         }
 
         return dto;
+    }
+
+    private ProductCondition resolveSellerClaimCondition(ConsignmentCreateRequest req) {
+        return req.getSellerClaimCondition() != null ? req.getSellerClaimCondition() : req.getCondition();
     }
 }

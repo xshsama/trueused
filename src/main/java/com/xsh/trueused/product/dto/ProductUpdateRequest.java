@@ -18,6 +18,7 @@ public record ProductUpdateRequest(
                 @Size(max = 3) String currency,
                 ProductStatus status,
                 ProductCondition condition,
+                ProductCondition sellerClaimCondition,
                 Long categoryId,
                 @Size(max = 100) String locationText,
                 @Size(max = 20) String shippingPayer,

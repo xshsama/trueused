@@ -24,6 +24,7 @@ import com.xsh.trueused.entity.ProductImage;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.entity.UserCoupon;
 import com.xsh.trueused.enums.CouponType;
+import com.xsh.trueused.enums.ProductCondition;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.product.mapper.ProductMapper;
 import com.xsh.trueused.category.repository.CategoryRepository;
@@ -249,7 +250,8 @@ public class ProductService {
     private ProductDTO withDynamicData(ProductDTO dto, ProductStatus status, Long views, Long favs) {
         return new ProductDTO(
                 dto.id(), dto.title(), dto.description(), dto.price(), dto.originalPrice(), dto.heatScore(),
-                dto.currency(), status, dto.condition(), dto.tradeModel(), dto.seller(), dto.category(),
+                dto.currency(), status, dto.condition(), dto.sellerClaimCondition(), dto.inspectionGrade(),
+                dto.tradeModel(), dto.seller(), dto.category(),
                 dto.locationText(), dto.lat(), dto.lng(), views, favs, dto.images(), dto.createdAt(), dto.updatedAt());
     }
 
@@ -290,6 +292,14 @@ public class ProductService {
         // Update Redis
         redisTemplate.opsForValue().set(KEY_STATUS + id, status.name());
         // Invalidate static cache to be safe
+        redisTemplate.delete(KEY_STATIC + id);
+    }
+
+    @Transactional
+    public void updateInspectionGrade(Long id, String inspectionGrade) {
+        Product p = productRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        p.setInspectionGrade(inspectionGrade);
+        productRepository.save(p);
         redisTemplate.delete(KEY_STATIC + id);
     }
 
@@ -366,7 +376,7 @@ public class ProductService {
             p.setOriginalPrice(req.originalPrice());
         if (req.currency() != null)
             p.setCurrency(req.currency());
-        p.setCondition(req.condition());
+        p.setCondition(resolveSellerClaimCondition(req.sellerClaimCondition(), req.condition()));
         if (req.categoryId() != null) {
             Category c = categoryRepository.findById(req.categoryId())
                     .orElseThrow(() -> new IllegalArgumentException("类目不存在"));
@@ -407,8 +417,9 @@ public class ProductService {
             p.setCurrency(req.currency());
         if (req.status() != null)
             p.setStatus(req.status());
-        if (req.condition() != null)
-            p.setCondition(req.condition());
+        ProductCondition sellerClaimCondition = resolveSellerClaimCondition(req.sellerClaimCondition(), req.condition());
+        if (sellerClaimCondition != null)
+            p.setCondition(sellerClaimCondition);
         if (req.categoryId() != null) {
             Category c = categoryRepository.findById(req.categoryId())
                     .orElseThrow(() -> new IllegalArgumentException("类目不存在"));
@@ -438,6 +449,10 @@ public class ProductService {
                 p.getImages().add(img);
             }
         }
+    }
+
+    private ProductCondition resolveSellerClaimCondition(ProductCondition sellerClaimCondition, ProductCondition legacyCondition) {
+        return sellerClaimCondition != null ? sellerClaimCondition : legacyCondition;
     }
 
     @Transactional

@@ -41,6 +41,11 @@ public class InspectionController {
         return ApiResponse.success(inspectionService.getInspectionFlow(orderId));
     }
 
+    @GetMapping("/inspections/orders/{orderId}/report")
+    public ApiResponse<InspectionFlowDTO> getOrderLinkedInspectionFlow(@PathVariable Long orderId) {
+        return ApiResponse.success(inspectionService.getOrderLinkedInspectionFlow(orderId));
+    }
+
     @GetMapping("/inspections/consignment/{consignmentId}/flow")
     public ApiResponse<InspectionFlowDTO> getConsignmentInspectionFlow(@PathVariable Long consignmentId) {
         return ApiResponse.success(inspectionService.getInspectionFlowByConsignment(consignmentId));

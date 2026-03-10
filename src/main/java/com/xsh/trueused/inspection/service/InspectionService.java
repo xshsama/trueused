@@ -193,6 +193,27 @@ public class InspectionService {
     }
 
     @Transactional(readOnly = true)
+    public InspectionFlowDTO getOrderLinkedInspectionFlow(Long orderId) {
+        Optional<Inspection> orderInspection = inspectionRepository.findByOrderId(orderId);
+        if (orderInspection.isPresent()) {
+            return toInspectionFlowDTO(orderInspection.get());
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        Long productId = order.getProduct() != null ? order.getProduct().getId() : null;
+        if (productId == null) {
+            throw new RuntimeException("Inspection not found for order " + orderId);
+        }
+
+        Inspection linkedInspection = inspectionRepository.findTopByConsignmentProductIdOrderByCreatedAtDesc(productId)
+                .orElseThrow(() -> new RuntimeException("Inspection not found for order " + orderId));
+
+        return toInspectionFlowDTO(linkedInspection);
+    }
+
+    @Transactional(readOnly = true)
     public InspectionFlowDTO getInspectionById(Long inspectionId) {
         Inspection inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new RuntimeException("Inspection not found with id " + inspectionId));

@@ -15,6 +15,8 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
 
     Optional<Inspection> findByConsignmentId(Long consignmentId);
 
+    Optional<Inspection> findTopByConsignmentProductIdOrderByCreatedAtDesc(Long productId);
+
     @Query("""
             select coalesce(cc.name, pc.name)
             from Inspection i

@@ -1,27 +1,138 @@
 # TrueUsed Backend
 
-## Alipay Sandbox Configuration
+TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + mock 售后”搭建的 Spring Boot 服务。当前项目目标不是生产落地，而是把二手平台的核心链路跑通，并让前端能够演示完整业务流程。
 
-The project is configured to use Alipay Sandbox for payment testing.
+## 项目定位
 
-### Configuration
+- 面向二手交易平台场景
+- 同时支持 `卖家自出` 和 `平台验货` 两种成交模式
+- 以 mock 数据驱动交易、物流、验货和售后闭环
+- 适合课程项目、作品集展示和流程答辩，不是生产级系统
 
-Properties in `application.properties`:
+## 技术栈
 
-- `alipay.app-id`: 9021000158632251
-- `alipay.gateway-url`: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-- `alipay.notify-url`: http://localhost:8080/api/alipay/notify
-- `alipay.return-url`: http://localhost:5173/payment/success
+- Java 17
+- Spring Boot 3.5
+- Spring Security + JWT
+- Spring Data JPA
+- MySQL
+- Redis
+- Flyway
+- WebSocket / STOMP
+- MapStruct
+- Lombok
+- Cloudinary
+- Alipay Sandbox
 
-### Endpoints
+## 当前已实现模块
 
-- `POST /api/alipay/pay`: Create payment. Returns HTML form to auto-submit.
-- `POST /api/alipay/notify`: Webhook for payment status updates.
+- 用户认证与个人信息
+- 商品发布、上下架、收藏
+- 两种交易模式下的订单创建与支付
+- 平台验货报告与订单绑定
+- mock 物流生成、物流快照持久化、签收状态约束
+- 钱包支付与订单结算
+- 通知与消息基础能力
+- 退款申请、卖家审批、拒绝后重提、mock 手动完成退款
 
-### Testing
+## 核心业务流程
 
-1. Login to Alipay Sandbox app with provided test account.
-2. Create an order in TrueUsed.
-3. Select Alipay on payment page.
-4. Complete payment in the new window/tab.
-5. Check console logs for "Order paid" message.
+### 1. 卖家自出
+
+1. 商品发布并上架
+2. 买家下单
+3. 买家支付成功，订单进入 `PAID`
+4. 卖家手动发货，订单进入 `SHIPPED`
+5. mock 物流按时间推进
+6. 买家确认收货，订单完成
+
+### 2. 平台验货
+
+1. 商品以平台验货模式发布
+2. 平台生成验货结果与验货报告
+3. 买家下单并支付，订单进入 `PENDING_SHIPMENT`
+4. 平台仓自动生成一条 mock 出库物流
+5. 订单进入 `SHIPPED`
+6. 买家在订单详情查看验货报告与物流轨迹
+7. 物流推进到可签收节点后，买家确认收货
+
+### 3. 售后退款
+
+1. 买家发起退款申请，订单进入 `REFUNDING`
+2. 卖家在售后详情页同意或拒绝
+3. `REFUND_ONLY` 同意后直接完成退款
+4. `RETURN_REFUND` 暂不做逆向物流，由卖家手动完成一次 mock 退款闭环
+5. 若卖家拒绝，买家可以重新发起申请
+
+## mock 说明
+
+以下能力当前仍为 mock 或半 mock：
+
+- 物流轨迹按时间自动生成，不接第三方物流平台
+- 验货结果和验货明细以模拟数据驱动
+- 客服、通知、消息中的部分场景是演示数据
+- `退货退款` 不包含真实逆向物流，只保留手动完成闭环
+- 测试数据可通过本地数据开关或 Seeder 补充
+
+## 本地运行
+
+### 环境要求
+
+- JDK 17
+- MySQL 8+
+- Redis 6+
+- Maven 3.9+
+
+### 配置说明
+
+项目默认从 `src/main/resources/application.properties` 读取配置。当前文件中包含本地开发使用的数据库、Redis、Cloudinary 和支付宝沙箱示例配置；如果要对外发布或多人协作，建议改为环境变量或本地私有配置覆盖。
+
+关键项包括：
+
+- `server.port`
+- `spring.datasource.*`
+- `spring.data.redis.*`
+- `security.jwt.*`
+- `alipay.*`
+- `cloudinary.*`
+- `app.test-data.enabled`
+
+### 启动步骤
+
+```bash
+./mvnw spring-boot:run
+```
+
+默认端口：`8081`
+
+Flyway 会在启动时自动执行数据库迁移，当前迁移目录位于：
+
+```text
+src/main/resources/db/migration
+```
+
+## 与前端联调
+
+- 前端开发端口：`5173`
+- Vite 代理会把 `/api` 请求转发到 `http://localhost:8081`
+- 支付成功回跳页默认指向前端支付成功页
+
+## 当前项目亮点
+
+- 同一个项目里明确区分了 `卖家自出` 和 `平台验货` 两条交易链
+- 平台验货报告已经和订单绑定，不再是独立页面漂浮在流程之外
+- mock 物流不只是展示文案，而是已经影响订单状态和确认收货时机
+- 售后链路已经补到“可申请、可审批、可拒绝重提、可手动完成退款”的程度
+- 帮助中心、客服中心、客服消息等辅助页面也能承接核心流程说明
+
+## 当前遗留问题
+
+- 未实现真实逆向物流
+- 验货、物流、客服消息仍以 mock 数据为主
+- 缺少系统化自动化测试
+- 第三方能力目前仍偏演示性质，未做生产化配置隔离
+- 部分 Seeder / 本地配置文件仍在开发阶段整理中
+
+## 仓库状态说明
+
+当前后端主线功能已经基本闭环，但仓库里仍可能存在未提交的本地开发文件，例如测试数据 Seeder、应用配置或临时仓库改动。收尾交付前建议再做一次人工检查。

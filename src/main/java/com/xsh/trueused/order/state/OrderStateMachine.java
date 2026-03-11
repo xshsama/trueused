@@ -18,10 +18,13 @@ public class OrderStateMachine {
         this.transitionMap = new EnumMap<>(OrderTransition.class);
         register(OrderTransition.PAY, OrderStatus.PENDING_PAYMENT, OrderStatus.PAID);
         register(OrderTransition.SHIP, OrderStatus.PAID, OrderStatus.SHIPPED);
+        register(OrderTransition.SHIP, OrderStatus.PENDING_SHIPMENT, OrderStatus.SHIPPED);
         register(OrderTransition.CONFIRM_DELIVERY, OrderStatus.SHIPPED, OrderStatus.COMPLETED);
         register(OrderTransition.CANCEL, OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED);
         register(OrderTransition.CANCEL, OrderStatus.PAID, OrderStatus.CANCELLED);
+        register(OrderTransition.CANCEL, OrderStatus.PENDING_SHIPMENT, OrderStatus.CANCELLED);
         register(OrderTransition.REFUND, OrderStatus.PAID, OrderStatus.REFUNDED);
+        register(OrderTransition.REFUND, OrderStatus.PENDING_SHIPMENT, OrderStatus.REFUNDED);
         register(OrderTransition.REFUND, OrderStatus.SHIPPED, OrderStatus.REFUNDED);
         register(OrderTransition.EXPIRE, OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED);
     }

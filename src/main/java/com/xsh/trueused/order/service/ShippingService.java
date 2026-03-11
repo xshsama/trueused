@@ -71,13 +71,14 @@ public class ShippingService {
      * 
      * @param expressCompany  快递公司名称
      * @param trackingNumber  快递单号（可选）
+     * @param shipmentType    发货类型
      * @param senderCity      发件城市
      * @param senderDistrict  发件区域
      * @param receiverAddress 收件地址信息
      * @return 物流信息
      */
     public ShippingInfoDTO createShippingOrder(String expressCompany, String trackingNumber,
-            String senderCity, String senderDistrict, Address receiverAddress) {
+            String shipmentType, String senderCity, String senderDistrict, Address receiverAddress) {
         // 生成快递单号
         String finalTrackingNumber = trackingNumber;
         if (finalTrackingNumber == null || finalTrackingNumber.isEmpty()) {
@@ -103,7 +104,7 @@ public class ShippingService {
         List<TrackingEvent> events = new ArrayList<>();
         events.add(TrackingEvent.builder()
                 .time(now)
-                .description("卖家已发货，快递员正在揽收中")
+                .description(buildCreatedDescription(shipmentType))
                 .location(senderLocation)
                 .status("PENDING")
                 .build());
@@ -113,6 +114,7 @@ public class ShippingService {
         Instant estimatedDelivery = now.plus(deliveryDays, ChronoUnit.DAYS);
 
         ShippingInfoDTO shippingInfo = ShippingInfoDTO.builder()
+                .shipmentType(shipmentType)
                 .trackingNumber(finalTrackingNumber)
                 .expressCompany(expressCompany)
                 .expressCode(expressCode)
@@ -121,7 +123,9 @@ public class ShippingService {
                 .estimatedDeliveryTime(estimatedDelivery)
                 .trackingEvents(events)
                 .senderCity(senderCity)
+                .senderDistrict(senderDistrict)
                 .receiverCity(receiverCity)
+                .receiverDistrict(receiverDistrict)
                 .build();
 
         // 缓存物流信息
@@ -134,7 +138,7 @@ public class ShippingService {
      * 重建物流信息（用于系统重启后恢复数据）
      */
     public ShippingInfoDTO reconstructShippingInfo(String trackingNumber, String expressCompany, Instant shippedAt,
-            String senderCity, String senderDistrict, Address receiverAddress) {
+            String shipmentType, String senderCity, String senderDistrict, Address receiverAddress) {
 
         if (trackingNumber == null || shippedAt == null) {
             return null;
@@ -163,7 +167,7 @@ public class ShippingService {
         List<TrackingEvent> events = new ArrayList<>();
         events.add(TrackingEvent.builder()
                 .time(shippedAt)
-                .description("卖家已发货，快递员正在揽收中")
+                .description(buildCreatedDescription(shipmentType))
                 .location(senderLocation)
                 .status("PENDING")
                 .build());
@@ -173,6 +177,7 @@ public class ShippingService {
         Instant estimatedDelivery = shippedAt.plus(3, ChronoUnit.DAYS);
 
         ShippingInfoDTO shippingInfo = ShippingInfoDTO.builder()
+                .shipmentType(shipmentType)
                 .trackingNumber(trackingNumber)
                 .expressCompany(expressCompany)
                 .expressCode(expressCode)
@@ -181,14 +186,16 @@ public class ShippingService {
                 .estimatedDeliveryTime(estimatedDelivery)
                 .trackingEvents(events)
                 .senderCity(senderCity)
+                .senderDistrict(senderDistrict)
                 .receiverCity(receiverCity)
+                .receiverDistrict(receiverDistrict)
                 .build();
 
-        // 放入缓存
+        // 放入缓存并立即执行一次模拟进度更新
         shippingCache.put(trackingNumber, shippingInfo);
-
-        // 立即执行一次模拟进度更新
-        return simulateShippingProgress(shippingInfo, route);
+        ShippingInfoDTO refreshed = simulateShippingProgress(shippingInfo, route);
+        shippingCache.put(trackingNumber, refreshed);
+        return refreshed;
     }
 
     /**
@@ -204,21 +211,48 @@ public class ShippingService {
         }
 
         // 获取路线信息
-        ShippingRoute route = routeCache.get(trackingNumber);
+        ShippingRoute route = routeCache.computeIfAbsent(trackingNumber,
+                key -> new ShippingRoute(info.getSenderCity(), info.getSenderDistrict(), info.getReceiverCity(), info.getReceiverDistrict()));
 
         // 模拟物流进度更新
-        return simulateShippingProgress(info, route);
+        ShippingInfoDTO refreshed = simulateShippingProgress(info, route);
+        shippingCache.put(trackingNumber, refreshed);
+        return refreshed;
+    }
+
+    public ShippingInfoDTO refreshShippingInfo(ShippingInfoDTO info) {
+        if (info == null) {
+            return null;
+        }
+
+        ShippingRoute route = new ShippingRoute(
+                info.getSenderCity(),
+                info.getSenderDistrict(),
+                info.getReceiverCity(),
+                info.getReceiverDistrict());
+        routeCache.put(info.getTrackingNumber(), route);
+        shippingCache.put(info.getTrackingNumber(), info);
+
+        ShippingInfoDTO refreshed = simulateShippingProgress(info, route);
+        shippingCache.put(info.getTrackingNumber(), refreshed);
+        return refreshed;
     }
 
     /**
      * 模拟物流进度 - 根据时间推进物流状态
      */
     private ShippingInfoDTO simulateShippingProgress(ShippingInfoDTO info, ShippingRoute route) {
+        if (info == null || info.getShippedAt() == null) {
+            return info;
+        }
+
         Instant now = Instant.now();
         Instant shippedAt = info.getShippedAt();
         long hoursElapsed = ChronoUnit.HOURS.between(shippedAt, now);
 
-        List<TrackingEvent> events = new ArrayList<>(info.getTrackingEvents());
+        List<TrackingEvent> events = info.getTrackingEvents() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(info.getTrackingEvents());
         String currentStatus = info.getShippingStatus();
 
         // 使用真实的始发和目的城市
@@ -294,6 +328,7 @@ public class ShippingService {
         }
 
         return ShippingInfoDTO.builder()
+                .shipmentType(info.getShipmentType())
                 .trackingNumber(info.getTrackingNumber())
                 .expressCompany(info.getExpressCompany())
                 .expressCode(info.getExpressCode())
@@ -302,8 +337,17 @@ public class ShippingService {
                 .estimatedDeliveryTime(info.getEstimatedDeliveryTime())
                 .trackingEvents(events)
                 .senderCity(senderCity)
+                .senderDistrict(senderDistrict)
                 .receiverCity(receiverCity)
+                .receiverDistrict(receiverDistrict)
                 .build();
+    }
+
+    private String buildCreatedDescription(String shipmentType) {
+        if ("PLATFORM_OUTBOUND".equals(shipmentType)) {
+            return "平台仓已出库，快递员正在揽收中";
+        }
+        return "卖家已发货，快递员正在揽收中";
     }
 
     /**

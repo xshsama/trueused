@@ -3,10 +3,13 @@ package com.xsh.trueused.order.service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.entity.UserCoupon;
+import com.xsh.trueused.enums.ProductTradeModel;
 import com.xsh.trueused.order.enums.OrderStatus;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.product.mapper.ProductMapper;
@@ -85,6 +89,9 @@ public class OrderCommandService {
 
     @Autowired
     private OrderQueryService orderQueryService;
+
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest createOrderRequest, Long buyerId) {
@@ -189,8 +196,12 @@ public class OrderCommandService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to pay for this order");
         }
 
-        orderPaymentStrategyFactory.get(OrderPaymentType.DIRECT)
+        OrderPaymentResult result = orderPaymentStrategyFactory.get(OrderPaymentType.DIRECT)
                 .execute(order, OrderPaymentContext.direct(buyerId));
+
+        if (result == OrderPaymentResult.PROCESSED) {
+            maybeSchedulePlatformShipment(order);
+        }
 
         return orderQueryService.getOrderById(orderId);
     }
@@ -204,8 +215,12 @@ public class OrderCommandService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to pay for this order");
         }
 
-        orderPaymentStrategyFactory.get(OrderPaymentType.WALLET)
+        OrderPaymentResult result = orderPaymentStrategyFactory.get(OrderPaymentType.WALLET)
                 .execute(order, OrderPaymentContext.wallet(buyerId, password));
+
+        if (result == OrderPaymentResult.PROCESSED) {
+            maybeSchedulePlatformShipment(order);
+        }
 
         return orderQueryService.getOrderById(orderId);
     }
@@ -219,6 +234,7 @@ public class OrderCommandService {
                 .execute(order, OrderPaymentContext.callback(transactionId));
         if (result == OrderPaymentResult.PROCESSED) {
             log.info("Order {} payment success. Transaction ID: {}", orderId, transactionId);
+            maybeSchedulePlatformShipment(order);
         }
     }
 
@@ -229,6 +245,10 @@ public class OrderCommandService {
 
         if (!order.getSeller().getId().equals(sellerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to ship this order");
+        }
+
+        if (isOfficialInspectionOrder(order)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Official inspection orders are fulfilled by platform");
         }
 
         orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.SHIP, "Order cannot be shipped");
@@ -254,17 +274,12 @@ public class OrderCommandService {
         ShippingInfoDTO shippingInfo = shippingService.createShippingOrder(
                 expressCompany,
                 trackingNumber,
+                "SELLER_OUTBOUND",
                 senderCity,
                 senderDistrict,
                 receiverAddress);
 
-        // 更新订单物流信息
-        order.setTrackingNumber(shippingInfo.getTrackingNumber());
-        order.setExpressCompany(shippingInfo.getExpressCompany());
-        order.setExpressCode(shippingInfo.getExpressCode());
-        order.setShippedAt(shippingInfo.getShippedAt());
-        order.setEstimatedDeliveryTime(shippingInfo.getEstimatedDeliveryTime());
-        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.SHIP));
+        applyShippingToOrder(order, shippingInfo);
 
         orderRepository.save(order);
 
@@ -283,6 +298,40 @@ public class OrderCommandService {
     }
 
     @Transactional
+    public OrderDTO platformShipOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (!isOfficialInspectionOrder(order)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only official inspection orders can be platform shipped");
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING_SHIPMENT) {
+            return orderQueryService.getOrderById(orderId);
+        }
+
+        ShippingInfoDTO shippingInfo = shippingService.createShippingOrder(
+                "京东物流",
+                null,
+                "PLATFORM_OUTBOUND",
+                "平台仓",
+                "质检仓",
+                order.getAddress());
+
+        applyShippingToOrder(order, shippingInfo);
+        orderRepository.save(order);
+
+        notificationService.createNotification(
+                order.getBuyer().getId(),
+                "平台已出库",
+                "订单 [" + order.getId() + "] 已由平台仓出库，快递单号：" + order.getTrackingNumber(),
+                "ORDER_SHIPPED",
+                order.getId());
+
+        return orderQueryService.getOrderById(orderId);
+    }
+
+    @Transactional
     public OrderDTO confirmOrderDelivery(Long orderId, Long buyerId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
@@ -294,6 +343,7 @@ public class OrderCommandService {
 
         orderStateMachine.assertCanTransit(order.getStatus(), OrderTransition.CONFIRM_DELIVERY,
                 "Order delivery cannot be confirmed");
+        assertShippingReadyForDelivery(order);
         order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.CONFIRM_DELIVERY));
         order.setDeliveredAt(Instant.now());
         orderRepository.save(order);
@@ -330,7 +380,7 @@ public class OrderCommandService {
                 "Order cannot be cancelled at its current stage");
 
         // 已付款订单取消时，退款并释放买家冻结资金
-        if (order.getStatus() == OrderStatus.PAID) {
+        if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.PENDING_SHIPMENT) {
             walletService.refund(order.getBuyer().getId(), orderId, order.getPrice());
         }
 
@@ -413,6 +463,138 @@ public class OrderCommandService {
                     "您的订单 [" + order.getId() + "] 因超时未支付已自动取消。",
                     "ORDER_CANCELLED",
                     order.getId());
+        }
+    }
+
+    @Scheduled(fixedRate = 300000) // 每5分钟检查一次
+    @Transactional
+    public void autoCompleteShippedOrders() {
+        Instant autoConfirmDeadline = Instant.now().minus(7, ChronoUnit.DAYS);
+        List<Order> overdueShippedOrders = orderRepository.findByStatusAndShippedAtBefore(
+                OrderStatus.SHIPPED,
+                autoConfirmDeadline);
+
+        for (Order order : overdueShippedOrders) {
+            if (!orderStateMachine.canTransit(order.getStatus(), OrderTransition.CONFIRM_DELIVERY)) {
+                log.info("Skip auto confirm for order {} due to status {}", order.getId(), order.getStatus());
+                continue;
+            }
+
+            order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.CONFIRM_DELIVERY));
+            order.setDeliveredAt(Instant.now());
+            orderRepository.save(order);
+
+            walletService.transferToSeller(order.getSeller().getId(), order.getBuyer().getId(), order.getId(),
+                    order.getPrice());
+
+            notificationService.createNotification(
+                    order.getBuyer().getId(),
+                    "系统自动确认收货",
+                    "订单 [" + order.getId() + "] 已超过自动确认时限，系统已自动确认收货。",
+                    "ORDER_AUTO_COMPLETED",
+                    order.getId());
+
+            notificationService.createNotification(
+                    order.getSeller().getId(),
+                    "订单自动完成",
+                    "订单 [" + order.getId() + "] 已自动确认收货，款项已结算到您的钱包。",
+                    "ORDER_COMPLETED",
+                    order.getId());
+        }
+    }
+
+    @Scheduled(fixedRate = 30000)
+    @Transactional
+    public void autoDispatchPendingPlatformOrders() {
+        Instant dispatchDeadline = Instant.now().minus(5, ChronoUnit.SECONDS);
+        List<Order> pendingPlatformOrders = orderRepository.findByStatusAndPaymentTimeBefore(
+                OrderStatus.PENDING_SHIPMENT,
+                dispatchDeadline);
+
+        for (Order order : pendingPlatformOrders) {
+            if (!isOfficialInspectionOrder(order)) {
+                continue;
+            }
+            try {
+                platformShipOrder(order.getId());
+            } catch (Exception e) {
+                log.warn("Auto platform ship failed for order {}", order.getId(), e);
+            }
+        }
+    }
+
+    private void maybeSchedulePlatformShipment(Order order) {
+        if (!isOfficialInspectionOrder(order) || order.getStatus() != OrderStatus.PENDING_SHIPMENT) {
+            return;
+        }
+
+        Long orderId = order.getId();
+        CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(() -> {
+            try {
+                OrderCommandService self = applicationContext.getBean(OrderCommandService.class);
+                self.platformShipOrder(orderId);
+            } catch (Exception e) {
+                log.warn("Delayed platform ship failed for order {}", orderId, e);
+            }
+        });
+    }
+
+    private boolean isOfficialInspectionOrder(Order order) {
+        return order.getProduct() != null && order.getProduct().getTradeModel() == ProductTradeModel.OFFICIAL_INSPECTION;
+    }
+
+    private void applyShippingToOrder(Order order, ShippingInfoDTO shippingInfo) {
+        order.setTrackingNumber(shippingInfo.getTrackingNumber());
+        order.setExpressCompany(shippingInfo.getExpressCompany());
+        order.setExpressCode(shippingInfo.getExpressCode());
+        order.setShippedAt(shippingInfo.getShippedAt());
+        order.setEstimatedDeliveryTime(shippingInfo.getEstimatedDeliveryTime());
+        order.setShippingSnapshot(writeShippingSnapshot(shippingInfo));
+        order.setStatus(orderStateMachine.nextStatus(order.getStatus(), OrderTransition.SHIP));
+    }
+
+    private void assertShippingReadyForDelivery(Order order) {
+        try {
+            ShippingInfoDTO current = loadCurrentShippingInfo(order);
+            if (current == null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Shipping info is not ready yet");
+            }
+            if (!"DELIVERING".equals(current.getShippingStatus()) && !"DELIVERED".equals(current.getShippingStatus())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Package is not ready for delivery confirmation yet");
+            }
+            order.setShippingSnapshot(writeShippingSnapshot(current));
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read shipping snapshot");
+        }
+    }
+
+    private ShippingInfoDTO loadCurrentShippingInfo(Order order) throws Exception {
+        if (order.getShippingSnapshot() != null && !order.getShippingSnapshot().isBlank()) {
+            ShippingInfoDTO snapshot = objectMapper.readValue(order.getShippingSnapshot(), ShippingInfoDTO.class);
+            return shippingService.refreshShippingInfo(snapshot);
+        }
+
+        if (order.getTrackingNumber() == null || order.getShippedAt() == null) {
+            return null;
+        }
+
+        return shippingService.reconstructShippingInfo(
+                order.getTrackingNumber(),
+                order.getExpressCompany(),
+                order.getShippedAt(),
+                isOfficialInspectionOrder(order) ? "PLATFORM_OUTBOUND" : "SELLER_OUTBOUND",
+                isOfficialInspectionOrder(order) ? "平台仓" : "发货地",
+                isOfficialInspectionOrder(order) ? "质检仓" : "",
+                order.getAddress());
+    }
+
+    private String writeShippingSnapshot(ShippingInfoDTO shippingInfo) {
+        try {
+            return objectMapper.writeValueAsString(shippingInfo);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to persist shipping snapshot");
         }
     }
 }

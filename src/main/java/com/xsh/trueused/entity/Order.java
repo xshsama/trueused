@@ -74,6 +74,9 @@ public class Order extends BaseEntity {
     @Column(name = "delivered_at")
     private Instant deliveredAt;
 
+    @Column(name = "shipping_snapshot", columnDefinition = "TEXT")
+    private String shippingSnapshot;
+
     @Column(name = "product_snapshot", columnDefinition = "TEXT")
     private String productSnapshot;
 }

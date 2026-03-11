@@ -13,11 +13,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xsh.trueused.order.dto.OrderDTO;
 import com.xsh.trueused.order.dto.ShippingInfoDTO;
 import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.User;
+import com.xsh.trueused.enums.ProductTradeModel;
 import com.xsh.trueused.order.mapper.OrderMapper;
 import com.xsh.trueused.order.repository.OrderRepository;
 
@@ -35,6 +37,9 @@ public class OrderQueryService {
 
     @Autowired
     private ShippingService shippingService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<OrderDTO> getOrdersByBuyer(Long buyerId) {
@@ -87,6 +92,15 @@ public class OrderQueryService {
             return null;
         }
 
+        if (order.getShippingSnapshot() != null && !order.getShippingSnapshot().isBlank()) {
+            try {
+                ShippingInfoDTO snapshot = objectMapper.readValue(order.getShippingSnapshot(), ShippingInfoDTO.class);
+                return shippingService.refreshShippingInfo(snapshot);
+            } catch (Exception e) {
+                // fall through to legacy reconstruction when snapshot is malformed or from older data
+            }
+        }
+
         ShippingInfoDTO shippingInfo = shippingService.getShippingInfo(order.getTrackingNumber());
 
         // 如果缓存中没有物流信息（可能是服务重启导致），尝试重建
@@ -98,8 +112,15 @@ public class OrderQueryService {
                     order.getTrackingNumber(),
                     order.getExpressCompany(),
                     order.getShippedAt(),
-                    senderCity,
-                    senderDistrict,
+                    order.getProduct() != null && order.getProduct().getTradeModel() == ProductTradeModel.OFFICIAL_INSPECTION
+                            ? "PLATFORM_OUTBOUND"
+                            : "SELLER_OUTBOUND",
+                    order.getProduct() != null && order.getProduct().getTradeModel() == ProductTradeModel.OFFICIAL_INSPECTION
+                            ? "平台仓"
+                            : senderCity,
+                    order.getProduct() != null && order.getProduct().getTradeModel() == ProductTradeModel.OFFICIAL_INSPECTION
+                            ? "质检仓"
+                            : senderDistrict,
                     order.getAddress());
         }
 

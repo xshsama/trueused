@@ -50,6 +50,7 @@ public class OrderMapper {
         dto.setAddress(AddressMapper.toDTO(order.getAddress()));
         dto.setPrice(order.getPrice());
         dto.setStatus(order.getStatus());
+        dto.setPaymentTime(order.getPaymentTime());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
 

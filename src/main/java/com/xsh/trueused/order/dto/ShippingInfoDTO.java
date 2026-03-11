@@ -18,6 +18,11 @@ import lombok.NoArgsConstructor;
 public class ShippingInfoDTO {
 
     /**
+     * 发货类型: SELLER_OUTBOUND / PLATFORM_OUTBOUND
+     */
+    private String shipmentType;
+
+    /**
      * 快递单号
      */
     private String trackingNumber;
@@ -53,9 +58,19 @@ public class ShippingInfoDTO {
     private String senderCity;
 
     /**
+     * 发件区县
+     */
+    private String senderDistrict;
+
+    /**
      * 收件城市
      */
     private String receiverCity;
+
+    /**
+     * 收件区县
+     */
+    private String receiverDistrict;
 
     /**
      * 物流轨迹

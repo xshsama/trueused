@@ -1,7 +1,12 @@
 package com.xsh.trueused.refund.service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -9,11 +14,15 @@ import org.springframework.web.server.ResponseStatusException;
 import com.xsh.trueused.refund.dto.RefundRequestCreateDTO;
 import com.xsh.trueused.entity.Order;
 import com.xsh.trueused.entity.RefundRequest;
+import com.xsh.trueused.enums.ProductStatus;
+import com.xsh.trueused.enums.ProductTradeModel;
 import com.xsh.trueused.order.enums.OrderStatus;
 import com.xsh.trueused.enums.RefundStatus;
 import com.xsh.trueused.order.repository.OrderRepository;
 import com.xsh.trueused.refund.repository.RefundRequestRepository;
 import com.xsh.trueused.notification.service.NotificationService;
+import com.xsh.trueused.product.service.ProductService;
+import com.xsh.trueused.wallet.service.WalletService;
 
 @Service
 public class RefundService {
@@ -27,6 +36,12 @@ public class RefundService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private WalletService walletService;
+
+    @Autowired
+    private ProductService productService;
+
     @Transactional
     public RefundRequest requestRefund(Long orderId, RefundRequestCreateDTO dto, Long userId) {
         Order order = orderRepository.findById(orderId)
@@ -34,6 +49,13 @@ public class RefundService {
 
         if (!order.getBuyer().getId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only buyer can request refund");
+        }
+
+        if (dto.getRefundAmount() == null || dto.getRefundAmount().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refund amount must be positive");
+        }
+        if (dto.getRefundAmount().compareTo(order.getPrice()) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refund amount cannot exceed order amount");
         }
 
         // 允许退款的状态：已付款、已发货、已送达（但在确认收货前？或者确认收货后一定时间内？）
@@ -91,10 +113,6 @@ public class RefundService {
         refundRequest.setStatus(RefundStatus.APPROVED);
         refundRequestRepository.save(refundRequest);
 
-        // order.setStatus(OrderStatus.REFUND_APPROVED); // Removed to align with new
-        // state machine
-        // orderRepository.save(order);
-
         // 通知买家退款已同意
         notificationService.createNotification(
                 order.getBuyer().getId(),
@@ -103,8 +121,10 @@ public class RefundService {
                 "REFUND_APPROVED",
                 order.getId());
 
-        // TODO: Trigger actual money refund logic here if needed immediately, or wait
-        // for completion
+        // 仅退款：同意后直接自动完成，避免流程卡住
+        if (refundRequest.getRefundType() == com.xsh.trueused.enums.RefundType.REFUND_ONLY) {
+            return completeRefundInternal(refundRequest);
+        }
 
         return refundRequest;
     }
@@ -137,6 +157,8 @@ public class RefundService {
         // 让我们假设拒绝后，订单状态回到 SHIPPED 作为默认回退状态，或者根据是否有物流信息判断。
         if (order.getTrackingNumber() != null) {
             order.setStatus(OrderStatus.SHIPPED);
+        } else if (order.getProduct() != null && order.getProduct().getTradeModel() == ProductTradeModel.OFFICIAL_INSPECTION) {
+            order.setStatus(OrderStatus.PENDING_SHIPMENT);
         } else {
             order.setStatus(OrderStatus.PAID);
         }
@@ -155,27 +177,54 @@ public class RefundService {
 
     @Transactional
     public RefundRequest completeRefund(Long orderId) {
-        // 这个方法可能由系统调用，或者卖家确认退货收到后调用
         RefundRequest refundRequest = refundRequestRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refund request not found"));
+        return completeRefundInternal(refundRequest);
+    }
 
-        if (refundRequest.getStatus() != RefundStatus.APPROVED) {
-            // 只有同意了才能完成
-            // 或者是 RETURN_PENDING 之后的流程
+    @Scheduled(fixedRate = 300000) // 每5分钟检查一次
+    @Transactional
+    public void autoCompleteApprovedRefunds() {
+        Instant deadline = Instant.now().minus(7, ChronoUnit.DAYS);
+        List<RefundRequest> pendingCompletion = refundRequestRepository.findByStatusAndUpdatedAtBefore(
+                RefundStatus.APPROVED,
+                deadline);
+
+        for (RefundRequest refundRequest : pendingCompletion) {
+            completeRefundInternal(refundRequest);
         }
+    }
+
+    private RefundRequest completeRefundInternal(RefundRequest refundRequest) {
+        if (refundRequest.getStatus() == RefundStatus.COMPLETED) {
+            return refundRequest;
+        }
+        if (refundRequest.getStatus() != RefundStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refund request must be approved first");
+        }
+
+        Order order = refundRequest.getOrder();
 
         refundRequest.setStatus(RefundStatus.COMPLETED);
         refundRequestRepository.save(refundRequest);
 
-        Order order = refundRequest.getOrder();
         order.setStatus(OrderStatus.REFUNDED);
         orderRepository.save(order);
 
-        // 通知买家退款已完成
+        walletService.refund(order.getBuyer().getId(), order.getId(), refundRequest.getRefundAmount());
+        productService.updateProductStatus(order.getProduct().getId(), ProductStatus.ON_SALE);
+
         notificationService.createNotification(
                 order.getBuyer().getId(),
                 "退款成功",
-                "订单 [" + order.getId() + "] 退款流程已完成，款项将原路返回。",
+                "订单 [" + order.getId() + "] 退款已完成，金额已退回钱包。",
+                "REFUND_COMPLETED",
+                order.getId());
+
+        notificationService.createNotification(
+                order.getSeller().getId(),
+                "退款已完成",
+                "订单 [" + order.getId() + "] 退款流程已完成，商品状态已恢复为可售。",
                 "REFUND_COMPLETED",
                 order.getId());
 

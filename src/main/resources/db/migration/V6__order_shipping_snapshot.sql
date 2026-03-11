@@ -1,0 +1,2 @@
+ALTER TABLE `orders`
+  ADD COLUMN `shipping_snapshot` TEXT NULL AFTER `delivered_at`;

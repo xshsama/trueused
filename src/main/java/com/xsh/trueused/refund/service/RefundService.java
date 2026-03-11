@@ -42,6 +42,19 @@ public class RefundService {
     @Autowired
     private ProductService productService;
 
+    @Transactional(readOnly = true)
+    public RefundRequest getRefundRequestByOrderId(Long orderId, Long userId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (!order.getBuyer().getId().equals(userId) && !order.getSeller().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to view this refund");
+        }
+
+        return refundRequestRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refund request not found"));
+    }
+
     @Transactional
     public RefundRequest requestRefund(Long orderId, RefundRequestCreateDTO dto, Long userId) {
         Order order = orderRepository.findById(orderId)
@@ -65,12 +78,15 @@ public class RefundService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status not eligible for refund");
         }
 
-        // 检查是否已有退款申请
-        if (refundRequestRepository.findByOrderId(orderId).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Refund request already exists");
-        }
+        RefundRequest refundRequest = refundRequestRepository.findByOrderId(orderId)
+                .map(existing -> {
+                    if (existing.getStatus() != RefundStatus.REJECTED) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "Refund request already exists");
+                    }
+                    return existing;
+                })
+                .orElseGet(RefundRequest::new);
 
-        RefundRequest refundRequest = new RefundRequest();
         refundRequest.setOrder(order);
         refundRequest.setReason(dto.getReason());
         refundRequest.setRefundType(dto.getRefundType());
@@ -117,7 +133,9 @@ public class RefundService {
         notificationService.createNotification(
                 order.getBuyer().getId(),
                 "退款申请已同意",
-                "订单 [" + order.getId() + "] 卖家已同意退款。",
+                refundRequest.getRefundType() == com.xsh.trueused.enums.RefundType.RETURN_REFUND
+                        ? "订单 [" + order.getId() + "] 卖家已同意退款，待模拟回收入库后完成退款。"
+                        : "订单 [" + order.getId() + "] 卖家已同意退款。",
                 "REFUND_APPROVED",
                 order.getId());
 
@@ -176,7 +194,14 @@ public class RefundService {
     }
 
     @Transactional
-    public RefundRequest completeRefund(Long orderId) {
+    public RefundRequest completeRefund(Long orderId, Long userId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (!order.getSeller().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only seller can complete refund");
+        }
+
         RefundRequest refundRequest = refundRequestRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refund request not found"));
         return completeRefundInternal(refundRequest);

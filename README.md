@@ -27,12 +27,14 @@ TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + moc
 ## 当前已实现模块
 
 - 用户认证与个人信息
+- access token / refresh token 签发、刷新轮换与登出撤销
 - 商品发布、上下架、收藏
 - 两种交易模式下的订单创建与支付
 - 平台验货报告与订单绑定
 - mock 物流生成、物流快照持久化、签收状态约束
 - 钱包支付与订单结算
 - 通知与消息基础能力
+- WebSocket 鉴权接入 access token 校验
 - 退款申请、卖家审批、拒绝后重提、mock 手动完成退款
 
 ## 核心业务流程
@@ -74,6 +76,14 @@ TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + moc
 - `退货退款` 不包含真实逆向物流，只保留手动完成闭环
 - 测试数据可通过本地数据开关或 Seeder 补充
 
+## 认证与会话说明
+
+- 登录成功后返回 access token，并通过 HttpOnly Cookie 下发 refresh token
+- refresh token 在刷新时会做一次性轮换，旧 token 会进入撤销表
+- 登出会同时撤销当前 access token 与 refresh token，不再只是清理浏览器 Cookie
+- HTTP 接口与 WebSocket 握手阶段都会校验 token 类型、用户状态和撤销状态
+- 撤销记录通过 Flyway `V7__revoked_tokens.sql` 建表持久化
+
 ## 本地运行
 
 ### 环境要求
@@ -96,6 +106,8 @@ TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + moc
 - `alipay.*`
 - `cloudinary.*`
 - `app.test-data.enabled`
+
+当 `app.test-data.enabled=true` 时，启动过程会执行 `TestDataSeeder`，自动初始化测试用户、商品、订单、聊天、优惠券和评价等演示数据；默认关闭。
 
 ### 启动步骤
 
@@ -123,6 +135,7 @@ src/main/resources/db/migration
 - 平台验货报告已经和订单绑定，不再是独立页面漂浮在流程之外
 - mock 物流不只是展示文案，而是已经影响订单状态和确认收货时机
 - 售后链路已经补到“可申请、可审批、可拒绝重提、可手动完成退款”的程度
+- 登录刷新、登出注销和 WebSocket 鉴权已经补到服务端撤销校验，演示链路更完整
 - 帮助中心、客服中心、客服消息等辅助页面也能承接核心流程说明
 
 ## 当前遗留问题
@@ -131,6 +144,7 @@ src/main/resources/db/migration
 - 验货、物流、客服消息仍以 mock 数据为主
 - 缺少系统化自动化测试
 - 第三方能力目前仍偏演示性质，未做生产化配置隔离
+- 撤销表当前只做写入与校验，尚未补充过期数据清理策略
 - 部分 Seeder / 本地配置文件仍在开发阶段整理中
 
 ## 仓库状态说明

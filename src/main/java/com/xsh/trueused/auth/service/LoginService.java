@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.xsh.trueused.auth.dto.LoginRequest;
 import com.xsh.trueused.auth.dto.LoginResponse;
 import com.xsh.trueused.security.jwt.JwtTokenProvider;
+import com.xsh.trueused.security.service.TokenRevocationService;
 import com.xsh.trueused.security.user.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class LoginService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
+    private final TokenRevocationService tokenRevocationService;
 
     /**
      * 使用用户名密码认证，认证成功后签发 JWT 并返回。
@@ -79,13 +81,22 @@ public class LoginService {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "缺少刷新令牌");
         }
+        if (tokenRevocationService.isRevoked(refreshToken)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "刷新令牌已失效");
+        }
         if (!jwtTokenProvider.validateToken(refreshToken) || !jwtTokenProvider.isRefreshToken(refreshToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "刷新令牌无效");
+        }
+        if (!tokenRevocationService.revokeTokenIfActive(refreshToken, "ROTATED")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "刷新令牌已失效");
         }
         String username = jwtTokenProvider.getUsernameFromToken(refreshToken);
         // 重新加载用户，补足 id 与角色
         org.springframework.security.core.userdetails.UserDetails userDetails = userDetailsService
                 .loadUserByUsername(username);
+        if (!userDetails.isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "账户已禁用");
+        }
         UserPrincipal principal = (userDetails instanceof UserPrincipal)
                 ? (UserPrincipal) userDetails
                 : new UserPrincipal(null, userDetails.getUsername(), null, "", userDetails.isEnabled(),
@@ -122,9 +133,11 @@ public class LoginService {
 
     /**
      * 登出：通过设置过期的 refresh_token Cookie 来清除浏览器端保存的刷新令牌。
-     * 如果后续引入刷新令牌持久化（jti 黑名单/会话表），这里也应当撤销服务端状态。
+     * 同时将当前 access token 与 refresh token 加入服务端撤销表，避免仅清 Cookie 导致旧令牌继续可用。
      */
-    public void logout() {
+    public void logout(String accessToken, String refreshToken) {
+        tokenRevocationService.revokeTokenIfActive(accessToken, "LOGOUT");
+        tokenRevocationService.revokeTokenIfActive(refreshToken, "LOGOUT");
         // 清除 Cookie：与设置时的属性保持一致（path/samesite/secure），以确保浏览器能覆盖删除
         ResponseCookie expired = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true)

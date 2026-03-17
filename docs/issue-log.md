@@ -90,3 +90,52 @@
   已完成高置信度冗余文件清理，根目录仅保留仍有参考价值的文档。
 - 后续建议：
   后续调试截图建议放入临时目录并定期清理。
+
+## 2026-03-12 加固 JWT 类型校验与服务端登出撤销
+
+- 问题描述：
+  认证过滤器仅校验 JWT 是否合法，未强制要求 `typ=access`；登出流程只清理浏览器 Cookie，旧 token 在有效期内仍可能继续使用。
+- 根因分析：
+  HTTP 与 WebSocket 认证入口都只调用了通用 `validateToken`；服务端没有持久化撤销状态，且前端登出请求默认不会携带 `Authorization` 头。
+- 解决方法：
+  在 HTTP/WebSocket 认证入口增加 `access token` 类型校验；新增持久化撤销表与 `TokenRevocationService`，对登出和 refresh 轮换时的旧令牌做服务端撤销；前端登出请求显式附带当前 `Authorization` 头，确保 access token 可被服务端注销。
+- 修改文件：
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/auth/controller/AuthController.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/auth/service/LoginService.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/security/jwt/JwtAuthenticationFilter.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/security/jwt/JwtTokenProvider.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/config/WebSocketConfig.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/entity/RevokedToken.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/security/repository/RevokedTokenRepository.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/java/com/xsh/trueused/security/service/TokenRevocationService.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/main/resources/db/migration/V7__revoked_tokens.sql`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/test/java/com/xsh/trueused/security/jwt/JwtAuthenticationFilterTest.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/src/test/java/com/xsh/trueused/auth/service/LoginServiceTest.java`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/api/auth.js`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/docs/issue-log.md`
+- 验证方式：
+  补充过滤器与登录服务的单元测试；尝试执行 `./mvnw -Dtest=JwtAuthenticationFilterTest,LoginServiceTest test`；同时静态检查差异与关键文件逻辑。
+- 结果：
+  代码已完成加固与测试补充；当前环境缺少 Java Runtime，导致 Maven 测试未能实际执行，其余静态检查通过。
+- 后续建议：
+  在具备 JDK 的环境执行迁移与测试；后续可增加过期撤销记录清理任务，并考虑将撤销查询迁移到 Redis 以降低数据库热路径压力。
+
+## 2026-03-17 更新前后端说明文档
+
+- 问题描述：
+  前后端 README 与实现记录没有覆盖本轮登录鉴权、首页改版、验货报告页调整和测试数据开关等最近改动，文档与代码现状存在偏差。
+- 根因分析：
+  本轮开发先完成了代码更新，但对应的仓库说明文件没有同步维护，导致项目亮点、配置说明和页面实现记录仍停留在旧版本。
+- 解决方法：
+  更新后端 README，补充令牌撤销、刷新轮换、WebSocket 鉴权与测试数据 Seeder 说明；更新前端 README 与 Implementation 文档，补充首页、验货报告页和登出联动的当前实现状态。
+- 修改文件：
+  `/Users/xshsama/code/TrueUsed/TrueUsed/README.md`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/docs/issue-log.md`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/README.md`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/Implementation.md`
+- 验证方式：
+  人工核对 README/Implementation 中的模块说明、配置项和页面描述是否与当前工作区代码改动一致，再检查 git diff 确认仅修改目标文档。
+- 结果：
+  前后端说明文档已与当前本地实现基本对齐，便于后续直接提交并同步到 GitHub。
+- 后续建议：
+  后续每一轮功能合并时同步更新 README 里的“当前已实现模块”和“遗留问题”，避免再次出现文档滞后。

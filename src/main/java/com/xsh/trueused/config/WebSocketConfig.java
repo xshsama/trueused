@@ -28,6 +28,7 @@ import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import com.xsh.trueused.security.jwt.JwtTokenProvider;
+import com.xsh.trueused.security.service.TokenRevocationService;
 import com.xsh.trueused.security.user.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsService userDetailsService;
+    private final TokenRevocationService tokenRevocationService;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -98,7 +100,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
-                        boolean isValid = jwtTokenProvider.validateToken(token);
+                        boolean isValid = jwtTokenProvider.validateToken(token)
+                                && jwtTokenProvider.isAccessToken(token)
+                                && !tokenRevocationService.isRevoked(token);
                         log.info("【WS调试】Token 校验结果: {}", isValid);
 
                         if (isValid) {
@@ -106,6 +110,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             log.info("【WS调试】解析出的用户名: {}", username);
 
                             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                            if (!userDetails.isEnabled()) {
+                                log.warn("【WS调试】⚠️ 用户已被禁用，拒绝建立 WS 连接: {}", username);
+                                return MessageBuilder.createMessage(message.getPayload(), accessor.getMessageHeaders());
+                            }
                             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                     userDetails, null, userDetails.getAuthorities());
 

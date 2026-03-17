@@ -85,13 +85,16 @@ public class JwtTokenProvider {
     public String generateRefreshTokenFromUser(UserDetails userDetails) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + refreshExpirationMs);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .claim("typ", "refresh")
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256);
+        if (userDetails instanceof UserPrincipal principal && principal.getId() != null) {
+            builder.claim("uid", principal.getId());
+        }
+        return builder.compact();
     }
 
     public Claims parseAllClaims(String token) {
@@ -132,6 +135,23 @@ public class JwtTokenProvider {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public String getTokenType(String token) {
+        Claims claims = parseAllClaims(token);
+        return claims.get("typ", String.class);
+    }
+
+    public java.time.Instant getExpirationFromToken(String token) {
+        return parseAllClaims(token).getExpiration().toInstant();
+    }
+
+    public Long getUserIdFromToken(String token) {
+        Object uid = parseAllClaims(token).get("uid");
+        if (uid instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
     }
 
     public long getAccessTokenExpirationMs() {

@@ -58,13 +58,18 @@ public class WalletService {
 
     @Transactional
     protected Wallet getOrCreateWalletForUpdate(Long userId) {
-        return walletRepository.findByUserIdForUpdate(userId)
-                .orElseGet(() -> {
-                    // 首次创建钱包后，再以 FOR UPDATE 方式读取，保证后续余额更新串行化
-                    getOrCreateWallet(userId);
-                    return walletRepository.findByUserIdForUpdate(userId)
-                            .orElseThrow(() -> new RuntimeException("Wallet not found after creation"));
-                });
+        return walletRepository.findByUserId(userId)
+                .map(wallet -> walletRepository.findByIdForUpdate(wallet.getId())
+                        .orElseThrow(() -> new RuntimeException("Wallet not found for update")))
+                .orElseGet(() -> createWallet(userId));
+    }
+
+    private Wallet createWallet(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Wallet wallet = new Wallet();
+        wallet.setUser(user);
+        return walletRepository.save(wallet);
     }
 
     private WalletTransaction buildTransaction(Wallet wallet, BigDecimal amount,

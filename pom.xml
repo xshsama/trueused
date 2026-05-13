@@ -63,6 +63,14 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
 		<!-- Bean Validation 支持 (Jakarta Validation) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -174,13 +182,20 @@
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+				</configuration>
+			</plugin>
+			<plugin>
     <groupId>org.flywaydb</groupId>
     <artifactId>flyway-maven-plugin</artifactId>
     <version>${flyway.version}</version>
     <configuration>
-        <url>jdbc:mysql://localhost:1100/trueused?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=Asia/Shanghai</url>
-        <user>root</user>
-        <password>ying200568</password>
+        <url>${env.FLYWAY_URL}</url>
+        <user>${env.FLYWAY_USER}</user>
+        <password>${env.FLYWAY_PASSWORD}</password>
     </configuration>
 </plugin>
 

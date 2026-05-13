@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 预检请求放行
+                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh",
                                 "/api/auth/logout", "/error", "/api/ws/**", "/api/coupons/*")
                         .permitAll()

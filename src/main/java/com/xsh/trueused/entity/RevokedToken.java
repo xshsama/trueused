@@ -25,7 +25,7 @@ import lombok.Setter;
 })
 public class RevokedToken extends BaseEntity {
 
-    @Column(name = "token_hash", nullable = false, length = 64)
+    @Column(name = "token_hash", nullable = false, columnDefinition = "CHAR(64)")
     private String tokenHash;
 
     @Column(name = "token_type", nullable = false, length = 20)

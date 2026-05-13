@@ -106,6 +106,9 @@ public class OrderCommandService {
                     product.getSeller() != null ? product.getSeller().getId() : null);
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Product is not available for purchase");
         }
+        if (product.getSeller() != null && product.getSeller().getId().equals(buyerId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buyer cannot purchase own product");
+        }
 
         // 3. 查找买家
         User buyer = userRepository.findById(buyerId)

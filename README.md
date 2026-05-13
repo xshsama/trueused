@@ -95,17 +95,20 @@ TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + moc
 
 ### 配置说明
 
-项目默认从 `src/main/resources/application.properties` 读取配置。当前文件中包含本地开发使用的数据库、Redis、Cloudinary 和支付宝沙箱示例配置；如果要对外发布或多人协作，建议改为环境变量或本地私有配置覆盖。
+项目默认从 `src/main/resources/application.properties` 读取配置，敏感项通过环境变量覆盖。可参考仓库中的 `.env.example` 准备本地配置。
 
 关键项包括：
 
-- `server.port`
-- `spring.datasource.*`
-- `spring.data.redis.*`
-- `security.jwt.*`
-- `alipay.*`
-- `cloudinary.*`
-- `app.test-data.enabled`
+- `SERVER_PORT`
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- `SPRING_REDIS_HOST`
+- `SPRING_REDIS_PORT`
+- `JWT_SECRET`
+- `CLOUDINARY_*`
+- `ALIPAY_*`
+- `APP_TEST_DATA_ENABLED`
 
 当 `app.test-data.enabled=true` 时，启动过程会执行 `TestDataSeeder`，自动初始化测试用户、商品、订单、聊天、优惠券和评价等演示数据；默认关闭。
 
@@ -128,6 +131,17 @@ src/main/resources/db/migration
 - 前端开发端口：`5173`
 - Vite 代理会把 `/api` 请求转发到 `http://localhost:8081`
 - 支付成功回跳页默认指向前端支付成功页
+
+## Docker 运行
+
+仓库根目录提供 `docker-compose.yml`，默认端口：
+
+- 前端：`http://localhost`
+- 后端：`http://localhost:8081`
+- MySQL：`localhost:3306`
+- Redis：`localhost:6379`
+
+如需替换 JWT、Cloudinary、支付宝沙箱等配置，复制根目录 `.env.example` 为 `.env` 后修改。
 
 ## 当前项目亮点
 

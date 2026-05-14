@@ -1,14 +1,16 @@
+# syntax=docker/dockerfile:1.7
+
 # 多阶段构建：第一阶段编译 Spring Boot 应用
 FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
-# 复制 pom.xml 和源代码
 COPY pom.xml .
+
 COPY src/ src/
 
 # 构建应用（跳过测试）
-RUN mvn clean package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 mvn -B package -DskipTests
 
 # 第二阶段：运行时镜像
 FROM eclipse-temurin:17-jre-jammy

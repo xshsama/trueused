@@ -56,14 +56,28 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 预检请求放行
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh",
-                                "/api/auth/logout", "/error", "/api/ws/**", "/api/coupons/*")
+                                "/api/auth/logout", "/error", "/api/ws/**")
                         .permitAll()
-                        .requestMatchers("/api/products/**", "/api/categories/**").permitAll()
                         .requestMatchers("/api/alipay/notify").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/products/my").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*").permitAll()
+                        .requestMatchers("/api/products/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+                        .requestMatchers("/api/categories/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/coupons").permitAll()
+                        .requestMatchers("/api/coupons/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/*/public-profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/products/*", "/api/reviews/sellers/*")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/comments/products/*", "/api/comments/sellers/*")
+                        .permitAll()
                         .requestMatchers("/api/orders/**", "/api/favorites/**", "/api/users/**",
                                 "/api/conversations/**", "/api/cloudinary/**", "/api/consignments/**",
-                                "/api/inspections/**", "/api/messages/**", "/api/wallet/**")
+                                "/api/inspections/**", "/api/messages/**", "/api/wallet/**",
+                                "/api/addresses/**", "/api/notifications/**", "/api/history/**",
+                                "/api/reviews/**", "/api/comments/**", "/api/statistics/**",
+                                "/api/alipay/**", "/api/platform/**")
                         .authenticated()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex 

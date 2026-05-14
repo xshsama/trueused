@@ -173,3 +173,26 @@
   已确认订单在进入收银台前就已创建；`/api/alipay/pay` 只生成并返回自动提交的支付宝表单，不改订单状态；真正的支付确认来自 `/api/alipay/notify` 的签名校验与回调处理，前端 `/payment/success` 页面只负责轮询订单状态并展示结果。
 - 后续建议：
   后续若继续完善支付宝链路，建议补上支付前订单归属与金额校验、回调业务字段校验，以及“支付发起日志”和“回调处理日志”的统一追踪字段。
+
+## 2026-05-14 管理端前端接入
+
+- 问题描述：
+  当前后端已经存在 `/api/admin/**` 管理接口与 `ADMIN` 权限控制，但前端缺少管理员专属操作界面，导致用户管理和提现审核只能通过接口调试完成。
+- 根因分析：
+  项目此前重点放在买家端与卖家工作台闭环，后台能力虽已在 Spring Security 和控制器层落地，但前端路由、登录态角色识别和独立后台画布都没有接入。
+- 解决方法：
+  在 `TrueUsed-web` 内直接新增 `/admin` 独立控制台路由，补充基于 `roles` 的管理员守卫；在用户 store 中统一规范角色字段并暴露 `isAdmin`；新增 `admin.js` API 封装；实现 Linear Alpha 风格的暗色管理页，覆盖平台概览、用户管理、提现审核，并把入口挂到管理员头像菜单中。
+- 修改文件：
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/stores/user.js`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/router/index.js`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/components/TopNavbar.vue`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/App.vue`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/api/admin.js`
+  `/Users/xshsama/code/TrueUsed/TrueUsed-web/src/views/AdminConsole.vue`
+  `/Users/xshsama/code/TrueUsed/TrueUsed/docs/issue-log.md`
+- 验证方式：
+  通过前端构建验证新增页面、路由守卫与 API 模块可正常编译；人工检查 `/admin` 权限入口、管理员菜单入口和暗色后台样式是否与既有主站隔离。
+- 结果：
+  已完成单项目内的管理员控制台接入，不需要新开前端工程；普通用户无法直接访问 `/admin`，管理员可在同一登录体系下进入后台执行用户状态管理和提现审核。
+- 后续建议：
+  下一步建议继续补后台的订单仲裁、举报处理、验货任务调度与运营看板接口，避免管理端停留在“只有面板、缺少平台操作闭环”的阶段。

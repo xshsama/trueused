@@ -11,7 +11,7 @@ TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + moc
 
 ## 技术栈
 
-- Java 17
+- Java 21
 - Spring Boot 3.5
 - Spring Security + JWT
 - Spring Data JPA
@@ -88,7 +88,7 @@ TrueUsed 后端是一个围绕“二手交易 + 平台验货 + mock 物流 + moc
 
 ### 环境要求
 
-- JDK 17
+- JDK 21
 - MySQL 8+
 - Redis 6+
 - Maven 3.9+

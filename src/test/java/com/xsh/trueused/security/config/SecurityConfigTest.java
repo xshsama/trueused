@@ -25,7 +25,7 @@ import com.xsh.trueused.security.service.TokenRevocationService;
 import org.springframework.security.core.userdetails.UserDetailsService;
 
 @WebMvcTest(controllers = SecurityConfigTest.TestRoutes.class)
-@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class, SecurityConfigTest.TestRoutes.class })
 class SecurityConfigTest {
 
     @Autowired
@@ -95,7 +95,7 @@ class SecurityConfigTest {
     }
 
     @RestController
-    static class TestRoutes {
+    public static class TestRoutes {
         @GetMapping("/api/products/{id}")
         Map<String, Long> product(@PathVariable Long id) {
             return Map.of("id", id);

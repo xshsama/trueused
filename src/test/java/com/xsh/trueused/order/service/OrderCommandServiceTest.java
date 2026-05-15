@@ -24,6 +24,7 @@ import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.entity.User;
 import com.xsh.trueused.enums.ProductStatus;
 import com.xsh.trueused.notification.service.NotificationService;
+import com.xsh.trueused.observability.metrics.BusinessMetricsRecorder;
 import com.xsh.trueused.order.dto.CreateOrderRequest;
 import com.xsh.trueused.order.payment.OrderPaymentStrategyFactory;
 import com.xsh.trueused.order.repository.OrderRepository;
@@ -74,6 +75,9 @@ class OrderCommandServiceTest {
 
     @Mock
     private OrderQueryService orderQueryService;
+
+    @Mock
+    private BusinessMetricsRecorder businessMetricsRecorder;
 
     @InjectMocks
     private OrderCommandService orderCommandService;

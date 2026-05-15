@@ -15,6 +15,8 @@ import com.xsh.trueused.enums.ProductStatus;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
+    long countByStatus(OrderStatus status);
+
     @EntityGraph(attributePaths = { "buyer", "seller", "product", "address" })
     List<Order> findByBuyerId(Long buyerId);
 
@@ -26,6 +28,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     Optional<Order> findById(Long id);
 
     List<Order> findByStatusAndCreatedAtBefore(OrderStatus status, Instant dateTime);
+
+    Optional<Order> findFirstByStatusOrderByCreatedAtAsc(OrderStatus status);
 
     List<Order> findByStatusAndPaymentTimeBefore(OrderStatus status, Instant paymentTime);
 

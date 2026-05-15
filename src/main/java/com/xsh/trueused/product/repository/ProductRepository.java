@@ -11,6 +11,8 @@ import com.xsh.trueused.entity.Product;
 import com.xsh.trueused.enums.ProductStatus;
 
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
+    long countByStatus(ProductStatus status);
+
     List<Product> findByStatus(ProductStatus status);
 
     @Query("SELECT SUM(p.viewsCount) FROM Product p WHERE p.seller.id = :sellerId")
